@@ -1,3 +1,3 @@
 # Blaze
 
-Multi-threaded, CPU-based vector graphics rasterizer.
+#### Multi-threaded, CPU-based vector graphics rasterizer.

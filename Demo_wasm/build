@@ -1,0 +1,74 @@
+
+em++ -msimd128 -O3 main.cpp \
+../Blaze/BumpAllocator.cpp \
+../Blaze/CurveUtils.cpp \
+../Blaze/FloatRect.cpp \
+../Blaze/Geometry.cpp \
+../Blaze/LineBlockAllocator.cpp \
+../Blaze/Matrix.cpp \
+../Blaze/ThreadMemory.cpp \
+../Blaze/Threads.cpp \
+../Blaze/VectorImage.cpp \
+-pthread \
+-DSIMD_GENERIC \
+-sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+-sINITIAL_MEMORY=67108864 \
+-sALLOW_MEMORY_GROWTH \
+-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_RenderFrame,_TranslateCanvas,_ScaleCanvas,_InstallVectorImage \
+-sEXPORTED_RUNTIME_METHODS=ccall \
+-sMODULARIZE=1 \
+-sEXPORT_NAME="createModule" \
+-fno-rtti \
+-fno-exceptions \
+-std=c++20 \
+-I../Blaze -o index-0.js
+
+em++ -O3 main.cpp \
+../Blaze/BumpAllocator.cpp \
+../Blaze/CurveUtils.cpp \
+../Blaze/FloatRect.cpp \
+../Blaze/Geometry.cpp \
+../Blaze/LineBlockAllocator.cpp \
+../Blaze/Matrix.cpp \
+../Blaze/ThreadMemory.cpp \
+../Blaze/Threads.cpp \
+../Blaze/VectorImage.cpp \
+-pthread \
+-DSIMD_GENERIC \
+-sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+-sINITIAL_MEMORY=67108864 \
+-sALLOW_MEMORY_GROWTH \
+-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_RenderFrame,_TranslateCanvas,_ScaleCanvas,_InstallVectorImage \
+-sEXPORTED_RUNTIME_METHODS=ccall \
+-sMODULARIZE=1 \
+-sEXPORT_NAME="createModule" \
+-fno-rtti \
+-fno-exceptions \
+-std=c++20 \
+-I../Blaze -o index-1.js
+
+em++ -O3 main.cpp \
+../Blaze/BumpAllocator.cpp \
+../Blaze/CurveUtils.cpp \
+../Blaze/FloatRect.cpp \
+../Blaze/Geometry.cpp \
+../Blaze/LineBlockAllocator.cpp \
+../Blaze/Matrix.cpp \
+../Blaze/ThreadMemory.cpp \
+../Blaze/Threads.cpp \
+../Blaze/VectorImage.cpp \
+-pthread \
+-DSIMD_GENERIC \
+-sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+-sINITIAL_MEMORY=33554432 \
+-sALLOW_MEMORY_GROWTH \
+-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_RenderFrame,_TranslateCanvas,_ScaleCanvas,_InstallVectorImage \
+-sEXPORTED_RUNTIME_METHODS=ccall \
+-sMODULARIZE=1 \
+-sEXPORT_NAME="createModule" \
+-sMAXIMUM_MEMORY=536870912 \
+-fno-rtti \
+-fno-exceptions \
+-std=c++20 \
+-I../Blaze -o index-2.js
+

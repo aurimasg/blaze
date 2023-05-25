@@ -1,0 +1,202 @@
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Blaze Demo</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Blaze Demo" />
+<meta name="mobile-web-app-capable" content="yes" />
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    overscroll-behavior: none;
+    z-index: 0;
+    -webkit-user-select: none;
+}
+
+.pretty-shadow {
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 2px 3px 0 rgba(0, 0, 0, 0.1), 0 0px 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.image-menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    display: inline-block;
+    margin: 18px;
+    padding: 10px 23px;
+    border-radius: 8px;
+    background-color: white;
+    color: black;
+    text-decoration: none;
+    user-select: none;
+}
+
+.image-menu:hover {
+    background-color: #f4f4f4;
+}
+
+.image-menu-open, .image-menu-open:hover {
+    background-color: #e8e8e8;
+}
+
+.image-menu-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+    background-color: white;
+    border-radius: 8px;
+    z-index: 200;
+    margin: 18px;
+}
+
+.image-menu-content a {
+    display: block;
+    padding: 10px 20px;
+    margin: 3px;
+    border-radius: 7px;
+    color: black;
+    text-decoration: none;
+    user-select: none;
+}
+
+.image-menu-content a:hover {
+    background-color: #eee;
+}
+
+.image-menu-content-open {
+    display: inline-block;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.6);
+    z-index: 1000;
+    display: none;
+}
+
+.modal-overlay-open {
+    display: block;
+    pointer-events: none;
+}
+
+.progress-window {
+    width: 350px;
+    margin: 100px auto;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 480px) {
+	.progress-window {
+		width: calc(100% - 68px);
+	}
+}
+
+.progress-window span {
+    display: block;
+    padding: 8px 0 8px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    background: #ddd;
+}
+
+.progress {
+    border-radius: 6px;
+    height: 12px;
+    background: #1592ff;
+}
+
+.error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.6);
+    z-index: 2000;
+    display: none;
+}
+
+.error-overlay-open {
+    display: block;
+    pointer-events: none;
+}
+
+.error-window {
+    width: 350px;
+    margin: 100px auto;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: white;
+}
+
+@media (max-width: 520px) {
+	.error-window {
+		width: calc(100% - 68px);
+	}
+}
+
+.error-window span {
+    display: block;
+    padding: 8px 0 8px 0;
+}
+
+</style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <a id="image-menu" class="image-menu pretty-shadow" href="javascript:priv_ToggleImageMenu();">Images ▾</a>
+    <div id="image-menu-content" class="image-menu-content pretty-shadow">
+        <a href="javascript:priv_Download('tiger.vectorimage')">Tiger</a>
+        <a href="javascript:priv_Download('paris-30k.vectorimage')">Paris-30k</a>
+        <a href="javascript:priv_Download('paragraphs.vectorimage')">Paragraphs</a>
+        <a href="javascript:priv_Download('boston.vectorimage')">Boston</a>
+        <a href="javascript:priv_Download('periodic-table.vectorimage')">Periodic Table</a>
+    </div>
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="progress-window pretty-shadow">
+            <span>Loading...</span>
+            <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+            </div>
+        </div>
+    </div>
+    <div id="error-overlay" class="error-overlay">
+        <div class="error-window pretty-shadow">
+            <span>Failed to load WebAssembly module. You deserve a better web browser.</span>
+        </div>
+    </div>
+</body>
+<script src="/app.js"></script>
+</html>

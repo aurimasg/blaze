@@ -14,11 +14,13 @@
     padding: 0;
     font-family: sans-serif;
 }
+
 body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
 }
+
 canvas {
     position: absolute;
     top: 0;
@@ -31,11 +33,11 @@ canvas {
     -webkit-user-select: none;
 }
 
-.pretty-shadow {
+div.pretty-shadow, a.pretty-shadow {
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 2px 3px 0 rgba(0, 0, 0, 0.1), 0 0px 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-.image-menu {
+a.image-menu {
     position: absolute;
     top: 0;
     left: 0;
@@ -47,18 +49,19 @@ canvas {
     background-color: white;
     color: black;
     text-decoration: none;
+    cursor: pointer;
     user-select: none;
 }
 
-.image-menu:hover {
+a.image-menu:hover {
     background-color: #f4f4f4;
 }
 
-.image-menu-open, .image-menu-open:hover {
+a.image-menu-open, a.image-menu-open:hover {
     background-color: #e8e8e8;
 }
 
-.image-menu-content {
+div.image-menu-content {
     position: absolute;
     top: 0;
     left: 0;
@@ -69,25 +72,26 @@ canvas {
     margin: 18px;
 }
 
-.image-menu-content a {
+div.image-menu-content a {
     display: block;
     padding: 10px 20px;
     margin: 3px;
     border-radius: 7px;
     color: black;
     text-decoration: none;
+    cursor: pointer;
     user-select: none;
 }
 
-.image-menu-content a:hover {
+div.image-menu-content a:hover {
     background-color: #eee;
 }
 
-.image-menu-content-open {
+div.image-menu-content-open {
     display: inline-block;
 }
 
-.modal-overlay {
+div.modal-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -98,12 +102,12 @@ canvas {
     display: none;
 }
 
-.modal-overlay-open {
+div.modal-overlay-open {
     display: block;
     pointer-events: none;
 }
 
-.progress-window {
+div.progress-window {
     width: 350px;
     margin: 100px auto;
     padding: 16px;
@@ -114,30 +118,30 @@ canvas {
 }
 
 @media (max-width: 480px) {
-	.progress-window {
+	div.progress-window {
 		width: calc(100% - 68px);
 	}
 }
 
-.progress-window span {
+div.progress-window span {
     display: block;
     padding: 8px 0 8px 0;
 }
 
-.progress-bar {
+div.progress-bar {
     width: 100%;
     height: 12px;
     border-radius: 6px;
     background: #ddd;
 }
 
-.progress {
+div.progress {
     border-radius: 6px;
     height: 12px;
     background: #1592ff;
 }
 
-.error-overlay {
+div.error-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -148,12 +152,12 @@ canvas {
     display: none;
 }
 
-.error-overlay-open {
+div.error-overlay-open {
     display: block;
     pointer-events: none;
 }
 
-.error-window {
+div.error-window {
     width: 350px;
     margin: 100px auto;
     padding: 16px;
@@ -162,12 +166,12 @@ canvas {
 }
 
 @media (max-width: 520px) {
-	.error-window {
+	div.error-window {
 		width: calc(100% - 68px);
 	}
 }
 
-.error-window span {
+div.error-window span {
     display: block;
     padding: 8px 0 8px 0;
 }
@@ -176,13 +180,13 @@ canvas {
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <a id="image-menu" class="image-menu pretty-shadow" href="javascript:priv_ToggleImageMenu();">Images ▾</a>
+    <a id="image-menu" class="image-menu pretty-shadow">Images ▾</a>
     <div id="image-menu-content" class="image-menu-content pretty-shadow">
-        <a href="javascript:priv_Download('tiger.vectorimage')">Tiger</a>
-        <a href="javascript:priv_Download('paris-30k.vectorimage')">Paris-30k</a>
-        <a href="javascript:priv_Download('paragraphs.vectorimage')">Paragraphs</a>
-        <a href="javascript:priv_Download('boston.vectorimage')">Boston</a>
-        <a href="javascript:priv_Download('periodic-table.vectorimage')">Periodic Table</a>
+        <a id="open-tiger">Tiger</a>
+        <a id="open-paris-30k">Paris-30k</a>
+        <a id="open-paragraphs">Paragraphs</a>
+        <a id="open-boston">Boston</a>
+        <a id="open-periodic-table">Periodic Table</a>
     </div>
     <div id="modal-overlay" class="modal-overlay">
         <div class="progress-window pretty-shadow">

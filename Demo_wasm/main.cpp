@@ -231,17 +231,15 @@ void MainRenderer::TranslateCanvas(const double x, const double y)
 void MainRenderer::ScaleCanvas(const double delta, const double x,
     const double y)
 {
-    const double fraction = mScale;
-    const double magnification = fraction * delta;
-    const double newZoom = Min(Max(fraction + magnification, 0.01), 100000.0);
+    const double zoom = Clamp(mScale * delta, 0.001, 100000.0);
 
-    if (fraction != newZoom) {
-        const double dd = (newZoom - fraction) / fraction;
+    if (mScale != zoom) {
+        const double dd = (zoom - mScale) / mScale;
         const FloatPoint pn = mCoordinateSystemMatrix.Inverse().Map(x, y);
 
         mTranslation.X += (mTranslation.X - pn.X) * dd;
         mTranslation.Y += (mTranslation.Y - pn.Y) * dd;
-        mScale = newZoom;
+        mScale = zoom;
     }
 }
 

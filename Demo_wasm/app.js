@@ -19,6 +19,15 @@ function is_iOS() {
 }
 
 
+function wheelEventDelta(event) {
+    if (navigator.userAgent.match(/chrome|chromium|crios/i)) {
+        return event.deltaY * 0.003;
+    }
+
+    return event.deltaY * 0.0045;
+}
+
+
 function lerp(a, b, t) {
     return a + t * (b - a);
 }
@@ -340,15 +349,15 @@ class BlazeCanvas {
         }
 
         const canvasMouseWheel = (ev) => {
-            // Apparently, this hack (control key being set as modifier) is a standard
-            // kind of hack supported by at least Chrome and Firefox as a way to
-            // detect pinch gesture.
+            // Apparently, this hack (control key being set as modifier) is a
+            // standard hack supported by at least Chrome and Firefox as a way
+            // to detect pinch gesture.
             if (ev.ctrlKey) {
-                const delta = -ev.deltaY * 0.003 * window.devicePixelRatio;
+                const delta = -wheelEventDelta(ev) * window.devicePixelRatio;
                 const cx = ev.clientX * window.devicePixelRatio;
                 const cy = ev.clientY * window.devicePixelRatio;
 
-                this.scaleCanvas(delta, cx, cy);
+                this.scaleCanvas(1.0 + delta, cx, cy);
             } else {
                 this.translateCanvas(-ev.deltaX, -ev.deltaY);
             }
@@ -384,8 +393,8 @@ class BlazeCanvas {
                 const distanceDelta = Math.abs(distanceBetweenPrevious - distanceBetweenCurrent);
 
                 if (distanceDelta > Number.EPSILON) {
-                    if (distanceBetweenCurrent > Number.EPSILON) {
-                        const scaleDelta = (distanceBetweenCurrent - distanceBetweenPrevious) / distanceBetweenCurrent;
+                    if (distanceBetweenPrevious > Number.EPSILON) {
+                        const scaleDelta = distanceBetweenCurrent / distanceBetweenPrevious;
 
                         this.scaleCanvas(scaleDelta, this.touchCenter.x * r,
                             this.touchCenter.y * r);

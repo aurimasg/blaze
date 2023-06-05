@@ -114,28 +114,12 @@ private:
         const Matrix &matrix);
 
 
-    /**
-     * Adds quadratic curve completely contained within tile bounds. Curve
-     * points are in 24.8 format.
-     */
-    void AddContainedQuadraticF24Dot8(ThreadMemory &memory,
-        const F24Dot8Point q[3]);
-
-
-    /**
-     * Adds cubic curve completely contained within tile bounds. Curve points
-     * are in 24.8 format.
-     */
-    void AddContainedCubicF24Dot8(ThreadMemory &memory,
-        const F24Dot8Point c[3]);
-
-
-    void AddPotentiallyUncontainedCubicF24Dot8(ThreadMemory &memory,
-        const F24Dot8Point max, const F24Dot8Point c[3]);
-
-
     void AddUncontainedLine(ThreadMemory &memory, const ClipBounds &clip,
         const FloatPoint p0, const FloatPoint p1);
+
+
+    void AddContainedLineF24Dot8(ThreadMemory &memory, const F24Dot8Point p0,
+        const F24Dot8Point p1);
 
 
     /**
@@ -182,6 +166,14 @@ private:
 
 
     /**
+     * Adds quadratic curve completely contained within tile bounds. Curve
+     * points are in 24.8 format.
+     */
+    void AddContainedQuadraticF24Dot8(ThreadMemory &memory,
+        const F24Dot8Point q[3]);
+
+
+    /**
      * Adds cubic curve which potentially is not completely within clipping
      * bounds. Curve does not have to be monotonic.
      *
@@ -222,6 +214,18 @@ private:
      */
     void AddVerticallyContainedMonotonicCubic(ThreadMemory &memory,
         const ClipBounds &clip, FloatPoint p[4]);
+
+
+    void AddPotentiallyUncontainedCubicF24Dot8(ThreadMemory &memory,
+        const F24Dot8Point max, const F24Dot8Point c[3]);
+
+
+    /**
+     * Adds cubic curve completely contained within tile bounds. Curve points
+     * are in 24.8 format.
+     */
+    void AddContainedCubicF24Dot8(ThreadMemory &memory,
+        const F24Dot8Point c[3]);
 
 
     /**
@@ -271,20 +275,13 @@ private:
         const F24Dot8 x);
 
 
-    void AddContainedLineF24Dot8(ThreadMemory &memory, const F24Dot8Point p0,
-        const F24Dot8Point p1);
-
+    int32 *GetStartCoversForRowAtIndex(ThreadMemory &memory, const int index);
 
     void UpdateStartCovers(ThreadMemory &memory, const F24Dot8 y0,
         const F24Dot8 y1);
-
-
-    int32 *GetStartCoversForRowAtIndex(ThreadMemory &memory, const int index);
-    void UpdateStartCoversFull_Up(ThreadMemory &memory, const int index);
     void UpdateStartCoversFull_Down(ThreadMemory &memory, const int index);
-    L *LA(const int verticalIndex);
+    void UpdateStartCoversFull_Up(ThreadMemory &memory, const int index);
 
-private:
 
     /**
      * Value indicating the maximum cover value for a single pixel. Since
@@ -309,6 +306,8 @@ private:
     static void UpdateStartCovers_Up(int32 *covers, const F24Dot8 y0,
         const F24Dot8 y1);
 
+    L *LA(const int verticalIndex);
+
 private:
 
     // Initialized at the beginning, does not change later.
@@ -322,28 +321,6 @@ private:
     // Zero length trailing array.
     L mLA[0] ALIGNED(64);
 };
-
-
-
-template <typename T, typename L>
-FORCE_INLINE TileBounds Linearizer<T, L>::GetTileBounds() const {
-    return mBounds;
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE int32 **Linearizer<T, L>::GetStartCoverTable() const {
-    return mStartCoverTable;
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE const L *Linearizer<T, L>::GetLineArrayAtIndex(const TileIndex index) const {
-    ASSERT(index >= 0);
-    ASSERT(index < mBounds.RowCount);
-
-    return mLA + index;
-}
 
 
 template <typename T, typename L>
@@ -378,18 +355,30 @@ FORCE_INLINE Linearizer<T, L> *Linearizer<T, L>::Create(ThreadMemory &memory, co
 
 
 template <typename T, typename L>
-FORCE_INLINE Linearizer<T, L>::Linearizer(const TileBounds &bounds)
-:   mBounds(bounds)
-{
+FORCE_INLINE TileBounds Linearizer<T, L>::GetTileBounds() const {
+    return mBounds;
 }
 
 
 template <typename T, typename L>
-FORCE_INLINE L *Linearizer<T, L>::LA(const int verticalIndex) {
-    ASSERT(verticalIndex >= 0);
-    ASSERT(verticalIndex < mBounds.RowCount);
+FORCE_INLINE int32 **Linearizer<T, L>::GetStartCoverTable() const {
+    return mStartCoverTable;
+}
 
-    return mLA + verticalIndex;
+
+template <typename T, typename L>
+FORCE_INLINE const L *Linearizer<T, L>::GetLineArrayAtIndex(const TileIndex index) const {
+    ASSERT(index >= 0);
+    ASSERT(index < mBounds.RowCount);
+
+    return mLA + index;
+}
+
+
+template <typename T, typename L>
+FORCE_INLINE Linearizer<T, L>::Linearizer(const TileBounds &bounds)
+:   mBounds(bounds)
+{
 }
 
 
@@ -778,6 +767,115 @@ FORCE_INLINE void Linearizer<T, L>::AddUncontainedLine(ThreadMemory &memory,
             b.Y = Clamp(DoubleToF24Dot8(ry1), 0, clip.FMax.Y);
 
             AddContainedLineF24Dot8(memory, a, b);
+        }
+    }
+}
+
+
+static constexpr F24Dot8 MaximumDelta = 2048 << 8;
+
+
+template <typename T, typename L>
+FORCE_INLINE void Linearizer<T, L>::AddContainedLineF24Dot8(ThreadMemory &memory,
+    const F24Dot8Point p0, const F24Dot8Point p1)
+{
+    ASSERT(p0.X >= 0);
+    ASSERT(p0.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(p0.Y >= 0);
+    ASSERT(p0.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(p1.X >= 0);
+    ASSERT(p1.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(p1.Y >= 0);
+    ASSERT(p1.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+
+    if (p0.Y == p1.Y) {
+        // Ignore horizontal lines.
+        return;
+    }
+
+    if (p0.X == p1.X) {
+        // Special case, vertical line, simplifies this thing a lot.
+        if (p0.Y < p1.Y) {
+            // Line is going down ↓
+            Vertical_Down(memory, p0.Y, p1.Y, p0.X);
+        } else {
+            // Line is going up ↑
+
+            // Y values are not equal, as this case is checked already.
+
+            ASSERT(p0.Y != p1.Y);
+
+            Vertical_Up(memory, p0.Y, p1.Y, p0.X);
+        }
+
+        return;
+    }
+
+    // First thing is to limit line size.
+    const F24Dot8 dx = F24Dot8Abs(p1.X - p0.X);
+    const F24Dot8 dy = F24Dot8Abs(p1.Y - p0.Y);
+
+    if (dx > MaximumDelta or dy > MaximumDelta) {
+        const F24Dot8Point m {
+            (p0.X + p1.X) >> 1,
+            (p0.Y + p1.Y) >> 1
+        };
+
+        AddContainedLineF24Dot8(memory, p0, m);
+        AddContainedLineF24Dot8(memory, m, p1);
+
+        return;
+    }
+
+    // Line is short enough to be handled using 32 bit fixed point arithmetic.
+    if (p0.Y < p1.Y) {
+        // Line is going down ↓
+        const TileIndex rowIndex0 = T::F24Dot8ToTileRowIndex(p0.Y);
+        const TileIndex rowIndex1 = T::F24Dot8ToTileRowIndex(p1.Y - 1);
+
+        ASSERT(rowIndex0 <= rowIndex1);
+
+        if (rowIndex0 == rowIndex1) {
+            // Entire line is completely within horizontal band. For curves
+            // this is common case.
+            const F24Dot8 ty = T::TileRowIndexToF24Dot8(rowIndex0);
+            const F24Dot8 y0 = p0.Y - ty;
+            const F24Dot8 y1 = p1.Y - ty;
+
+            LA(rowIndex0)->AppendLineDownRL(memory, p0.X, y0, p1.X, y1);
+        } else if (p0.X < p1.X) {
+            // Line is going from left to right →
+            LineDownR(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
+        } else {
+            // Line is going right to left ←
+            LineDownL(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
+        }
+    } else {
+        // Line is going up ↑
+
+        // Y values are not equal, as this case is checked already.
+
+        ASSERT(p0.Y > p1.Y);
+
+        const TileIndex rowIndex0 = T::F24Dot8ToTileRowIndex(p0.Y - 1);
+        const TileIndex rowIndex1 = T::F24Dot8ToTileRowIndex(p1.Y);
+
+        ASSERT(rowIndex1 <= rowIndex0);
+
+        if (rowIndex0 == rowIndex1) {
+            // Entire line is completely within horizontal band. For curves
+            // this is common case.
+            const F24Dot8 ty = T::TileRowIndexToF24Dot8(rowIndex0);
+            const F24Dot8 y0 = p0.Y - ty;
+            const F24Dot8 y1 = p1.Y - ty;
+
+            LA(rowIndex0)->AppendLineUpRL(memory, p0.X, y0, p1.X, y1);
+        } else if (p0.X < p1.X) {
+            // Line is going from left to right →
+            LineUpR(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
+        } else {
+            // Line is going right to left ←
+            LineUpL(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
         }
     }
 }
@@ -1207,6 +1305,38 @@ FORCE_INLINE void Linearizer<T, L>::AddVerticallyContainedMonotonicQuadratic(
                 AddContainedQuadraticF24Dot8(memory, q);
             }
         }
+    }
+}
+
+
+template <typename T, typename L>
+FORCE_INLINE void Linearizer<T, L>::AddContainedQuadraticF24Dot8(ThreadMemory &memory,
+    const F24Dot8Point q[3])
+{
+    ASSERT(q != nullptr);
+    ASSERT(q[0].X >= 0);
+    ASSERT(q[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(q[0].Y >= 0);
+    ASSERT(q[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(q[1].X >= 0);
+    ASSERT(q[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(q[1].Y >= 0);
+    ASSERT(q[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(q[2].X >= 0);
+    ASSERT(q[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(q[2].Y >= 0);
+    ASSERT(q[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+
+    if (IsQuadraticFlatEnough(q)) {
+        AddContainedLineF24Dot8(memory, q[0], q[2]);
+    } else {
+        F24Dot8Point split[5];
+
+        SplitQuadratic(split, q);
+
+        AddContainedQuadraticF24Dot8(memory, split);
+
+        AddContainedQuadraticF24Dot8(memory, split + 2);
     }
 }
 
@@ -1663,74 +1793,6 @@ FORCE_INLINE void Linearizer<T, L>::AddVerticallyContainedMonotonicCubic(
 
 
 template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::AddContainedQuadraticF24Dot8(ThreadMemory &memory,
-    const F24Dot8Point q[3])
-{
-    ASSERT(q != nullptr);
-    ASSERT(q[0].X >= 0);
-    ASSERT(q[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(q[0].Y >= 0);
-    ASSERT(q[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(q[1].X >= 0);
-    ASSERT(q[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(q[1].Y >= 0);
-    ASSERT(q[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(q[2].X >= 0);
-    ASSERT(q[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(q[2].Y >= 0);
-    ASSERT(q[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-
-    if (IsQuadraticFlatEnough(q)) {
-        AddContainedLineF24Dot8(memory, q[0], q[2]);
-    } else {
-        F24Dot8Point split[5];
-
-        SplitQuadratic(split, q);
-
-        AddContainedQuadraticF24Dot8(memory, split);
-
-        AddContainedQuadraticF24Dot8(memory, split + 2);
-    }
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::AddContainedCubicF24Dot8(ThreadMemory &memory,
-    const F24Dot8Point c[4])
-{
-    ASSERT(c != nullptr);
-    ASSERT(c[0].X >= 0);
-    ASSERT(c[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(c[0].Y >= 0);
-    ASSERT(c[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(c[1].X >= 0);
-    ASSERT(c[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(c[1].Y >= 0);
-    ASSERT(c[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(c[2].X >= 0);
-    ASSERT(c[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(c[2].Y >= 0);
-    ASSERT(c[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(c[3].X >= 0);
-    ASSERT(c[3].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(c[3].Y >= 0);
-    ASSERT(c[3].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-
-    if (IsCubicFlatEnough(c)) {
-        AddContainedLineF24Dot8(memory, c[0], c[3]);
-    } else {
-        F24Dot8Point split[7];
-
-        SplitCubic(split, c);
-
-        AddContainedCubicF24Dot8(memory, split);
-
-        AddContainedCubicF24Dot8(memory, split + 3);
-    }
-}
-
-
-template <typename T, typename L>
 FORCE_INLINE void Linearizer<T, L>::AddPotentiallyUncontainedCubicF24Dot8(
     ThreadMemory &memory, const F24Dot8Point max, const F24Dot8Point c[4])
 {
@@ -1806,6 +1868,42 @@ FORCE_INLINE void Linearizer<T, L>::AddPotentiallyUncontainedCubicF24Dot8(
         }
     } else {
         AddContainedCubicF24Dot8(memory, c);
+    }
+}
+
+
+template <typename T, typename L>
+FORCE_INLINE void Linearizer<T, L>::AddContainedCubicF24Dot8(ThreadMemory &memory,
+    const F24Dot8Point c[4])
+{
+    ASSERT(c != nullptr);
+    ASSERT(c[0].X >= 0);
+    ASSERT(c[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(c[0].Y >= 0);
+    ASSERT(c[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(c[1].X >= 0);
+    ASSERT(c[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(c[1].Y >= 0);
+    ASSERT(c[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(c[2].X >= 0);
+    ASSERT(c[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(c[2].Y >= 0);
+    ASSERT(c[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(c[3].X >= 0);
+    ASSERT(c[3].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
+    ASSERT(c[3].Y >= 0);
+    ASSERT(c[3].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+
+    if (IsCubicFlatEnough(c)) {
+        AddContainedLineF24Dot8(memory, c[0], c[3]);
+    } else {
+        F24Dot8Point split[7];
+
+        SplitCubic(split, c);
+
+        AddContainedCubicF24Dot8(memory, split);
+
+        AddContainedCubicF24Dot8(memory, split + 3);
     }
 }
 
@@ -2079,178 +2177,25 @@ FORCE_INLINE void Linearizer<T, L>::Vertical_Up(ThreadMemory &memory,
 }
 
 
-static constexpr F24Dot8 MaximumDelta = 2048 << 8;
-
-
 template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::AddContainedLineF24Dot8(ThreadMemory &memory,
-    const F24Dot8Point p0, const F24Dot8Point p1)
+FORCE_INLINE int32 *Linearizer<T, L>::GetStartCoversForRowAtIndex(ThreadMemory &memory,
+    const int index)
 {
-    ASSERT(p0.X >= 0);
-    ASSERT(p0.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(p0.Y >= 0);
-    ASSERT(p0.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
-    ASSERT(p1.X >= 0);
-    ASSERT(p1.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
-    ASSERT(p1.Y >= 0);
-    ASSERT(p1.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
+    ASSERT(mStartCoverTable != nullptr);
+    ASSERT(index >= 0);
+    ASSERT(index < mBounds.RowCount);
 
-    if (p0.Y == p1.Y) {
-        // Ignore horizontal lines.
-        return;
+    int32 *p = mStartCoverTable[index];
+
+    if (p != nullptr) {
+        return p;
     }
 
-    if (p0.X == p1.X) {
-        // Special case, vertical line, simplifies this thing a lot.
-        if (p0.Y < p1.Y) {
-            // Line is going down ↓
-            Vertical_Down(memory, p0.Y, p1.Y, p0.X);
-        } else {
-            // Line is going up ↑
+    p = memory.FrameMallocArrayZeroFill<int32>(T::TileH);
 
-            // Y values are not equal, as this case is checked already.
+    mStartCoverTable[index] = p;
 
-            ASSERT(p0.Y != p1.Y);
-
-            Vertical_Up(memory, p0.Y, p1.Y, p0.X);
-        }
-
-        return;
-    }
-
-    // First thing is to limit line size.
-    const F24Dot8 dx = F24Dot8Abs(p1.X - p0.X);
-    const F24Dot8 dy = F24Dot8Abs(p1.Y - p0.Y);
-
-    if (dx > MaximumDelta or dy > MaximumDelta) {
-        const F24Dot8Point m {
-            (p0.X + p1.X) >> 1,
-            (p0.Y + p1.Y) >> 1
-        };
-
-        AddContainedLineF24Dot8(memory, p0, m);
-        AddContainedLineF24Dot8(memory, m, p1);
-
-        return;
-    }
-
-    // Line is short enough to be handled using 32 bit fixed point arithmetic.
-    if (p0.Y < p1.Y) {
-        // Line is going down ↓
-        const TileIndex rowIndex0 = T::F24Dot8ToTileRowIndex(p0.Y);
-        const TileIndex rowIndex1 = T::F24Dot8ToTileRowIndex(p1.Y - 1);
-
-        ASSERT(rowIndex0 <= rowIndex1);
-
-        if (rowIndex0 == rowIndex1) {
-            // Entire line is completely within horizontal band. For curves
-            // this is common case.
-            const F24Dot8 ty = T::TileRowIndexToF24Dot8(rowIndex0);
-            const F24Dot8 y0 = p0.Y - ty;
-            const F24Dot8 y1 = p1.Y - ty;
-
-            LA(rowIndex0)->AppendLineDownRL(memory, p0.X, y0, p1.X, y1);
-        } else if (p0.X < p1.X) {
-            // Line is going from left to right →
-            LineDownR(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
-        } else {
-            // Line is going right to left ←
-            LineDownL(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
-        }
-    } else {
-        // Line is going up ↑
-
-        // Y values are not equal, as this case is checked already.
-
-        ASSERT(p0.Y > p1.Y);
-
-        const TileIndex rowIndex0 = T::F24Dot8ToTileRowIndex(p0.Y - 1);
-        const TileIndex rowIndex1 = T::F24Dot8ToTileRowIndex(p1.Y);
-
-        ASSERT(rowIndex1 <= rowIndex0);
-
-        if (rowIndex0 == rowIndex1) {
-            // Entire line is completely within horizontal band. For curves
-            // this is common case.
-            const F24Dot8 ty = T::TileRowIndexToF24Dot8(rowIndex0);
-            const F24Dot8 y0 = p0.Y - ty;
-            const F24Dot8 y1 = p1.Y - ty;
-
-            LA(rowIndex0)->AppendLineUpRL(memory, p0.X, y0, p1.X, y1);
-        } else if (p0.X < p1.X) {
-            // Line is going from left to right →
-            LineUpR(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
-        } else {
-            // Line is going right to left ←
-            LineUpL(memory, rowIndex0, rowIndex1, dx, dy, p0, p1);
-        }
-    }
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Down(int32 *covers, const F24Dot8 y0,
-    const F24Dot8 y1)
-{
-    ASSERT(covers != nullptr);
-    ASSERT(y0 < y1);
-
-    // Integer parts for top and bottom.
-    const int rowIndex0 = y0 >> 8;
-    const int rowIndex1 = (y1 - 1) >> 8;
-
-    ASSERT(rowIndex0 >= 0);
-    ASSERT(rowIndex0 < T::TileH);
-    ASSERT(rowIndex1 >= 0);
-    ASSERT(rowIndex1 < T::TileH);
-
-    const int fy0 = y0 - (rowIndex0 << 8);
-    const int fy1 = y1 - (rowIndex1 << 8);
-
-    if (rowIndex0 == rowIndex1) {
-        covers[rowIndex0] -= fy1 - fy0;
-    } else {
-        covers[rowIndex0] -= 256 - fy0;
-
-        for (int i = rowIndex0 + 1; i < rowIndex1; i++) {
-            covers[i] -= 256;
-        }
-
-        covers[rowIndex1] -= fy1;
-    }
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Up(int32 *covers, const F24Dot8 y0,
-    const F24Dot8 y1)
-{
-    ASSERT(covers != nullptr);
-    ASSERT(y0 > y1);
-
-    // Integer parts for top and bottom.
-    const int rowIndex0 = (y0 - 1) >> 8;
-    const int rowIndex1 = y1 >> 8;
-
-    ASSERT(rowIndex0 >= 0);
-    ASSERT(rowIndex0 < T::TileH);
-    ASSERT(rowIndex1 >= 0);
-    ASSERT(rowIndex1 < T::TileH);
-
-    const int fy0 = y0 - (rowIndex0 << 8);
-    const int fy1 = y1 - (rowIndex1 << 8);
-
-    if (rowIndex0 == rowIndex1) {
-        covers[rowIndex0] += fy0 - fy1;
-    } else {
-        covers[rowIndex0] += fy0;
-
-        for (int i = rowIndex0 - 1; i > rowIndex1; i--) {
-            covers[i] += 256;
-        }
-
-        covers[rowIndex1] += 256 - fy1;
-    }
+    return p;
 }
 
 
@@ -2323,7 +2268,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
 
 
 template <typename T, typename L>
-FORCE_INLINE int32 *Linearizer<T, L>::GetStartCoversForRowAtIndex(ThreadMemory &memory,
+FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Down(ThreadMemory &memory,
     const int index)
 {
     ASSERT(mStartCoverTable != nullptr);
@@ -2333,14 +2278,16 @@ FORCE_INLINE int32 *Linearizer<T, L>::GetStartCoversForRowAtIndex(ThreadMemory &
     int32 *p = mStartCoverTable[index];
 
     if (p != nullptr) {
-        return p;
+        // Accumulate.
+        T::AccumulateStartCovers(p, FullPixelCoverNegative);
+    } else {
+        // Store first.
+        p = memory.FrameMallocArray<int32>(T::TileH);
+
+        T::FillStartCovers(p, FullPixelCoverNegative);
+
+        mStartCoverTable[index] = p;
     }
-
-    p = memory.FrameMallocArrayZeroFill<int32>(T::TileH);
-
-    mStartCoverTable[index] = p;
-
-    return p;
 }
 
 
@@ -2369,24 +2316,75 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Up(ThreadMemory &memor
 
 
 template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Down(ThreadMemory &memory,
-    const int index)
+FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Down(int32 *covers, const F24Dot8 y0,
+    const F24Dot8 y1)
 {
-    ASSERT(mStartCoverTable != nullptr);
-    ASSERT(index >= 0);
-    ASSERT(index < mBounds.RowCount);
+    ASSERT(covers != nullptr);
+    ASSERT(y0 < y1);
 
-    int32 *p = mStartCoverTable[index];
+    // Integer parts for top and bottom.
+    const int rowIndex0 = y0 >> 8;
+    const int rowIndex1 = (y1 - 1) >> 8;
 
-    if (p != nullptr) {
-        // Accumulate.
-        T::AccumulateStartCovers(p, FullPixelCoverNegative);
+    ASSERT(rowIndex0 >= 0);
+    ASSERT(rowIndex0 < T::TileH);
+    ASSERT(rowIndex1 >= 0);
+    ASSERT(rowIndex1 < T::TileH);
+
+    const int fy0 = y0 - (rowIndex0 << 8);
+    const int fy1 = y1 - (rowIndex1 << 8);
+
+    if (rowIndex0 == rowIndex1) {
+        covers[rowIndex0] -= fy1 - fy0;
     } else {
-        // Store first.
-        p = memory.FrameMallocArray<int32>(T::TileH);
+        covers[rowIndex0] -= 256 - fy0;
 
-        T::FillStartCovers(p, FullPixelCoverNegative);
+        for (int i = rowIndex0 + 1; i < rowIndex1; i++) {
+            covers[i] -= 256;
+        }
 
-        mStartCoverTable[index] = p;
+        covers[rowIndex1] -= fy1;
     }
+}
+
+
+template <typename T, typename L>
+FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Up(int32 *covers, const F24Dot8 y0,
+    const F24Dot8 y1)
+{
+    ASSERT(covers != nullptr);
+    ASSERT(y0 > y1);
+
+    // Integer parts for top and bottom.
+    const int rowIndex0 = (y0 - 1) >> 8;
+    const int rowIndex1 = y1 >> 8;
+
+    ASSERT(rowIndex0 >= 0);
+    ASSERT(rowIndex0 < T::TileH);
+    ASSERT(rowIndex1 >= 0);
+    ASSERT(rowIndex1 < T::TileH);
+
+    const int fy0 = y0 - (rowIndex0 << 8);
+    const int fy1 = y1 - (rowIndex1 << 8);
+
+    if (rowIndex0 == rowIndex1) {
+        covers[rowIndex0] += fy0 - fy1;
+    } else {
+        covers[rowIndex0] += fy0;
+
+        for (int i = rowIndex0 - 1; i > rowIndex1; i--) {
+            covers[i] += 256;
+        }
+
+        covers[rowIndex1] += 256 - fy1;
+    }
+}
+
+
+template <typename T, typename L>
+FORCE_INLINE L *Linearizer<T, L>::LA(const int verticalIndex) {
+    ASSERT(verticalIndex >= 0);
+    ASSERT(verticalIndex < mBounds.RowCount);
+
+    return mLA + verticalIndex;
 }

@@ -340,7 +340,7 @@ FORCE_INLINE int32 **Linearizer<T, L>::GetStartCoverTable() const {
 template <typename T, typename L>
 FORCE_INLINE const L *Linearizer<T, L>::GetLineArrayAtIndex(const TileIndex index) const {
     ASSERT(index >= 0);
-    ASSERT(index < mBounds.VerticalCount);
+    ASSERT(index < mBounds.RowCount);
 
     return mLA + index;
 }
@@ -349,11 +349,11 @@ FORCE_INLINE const L *Linearizer<T, L>::GetLineArrayAtIndex(const TileIndex inde
 template <typename T, typename L>
 FORCE_INLINE Linearizer<T, L> *Linearizer<T, L>::Create(ThreadMemory &memory, const TileBounds &bounds, const bool contains, const Geometry *geometry) {
     Linearizer *linearizer = static_cast<Linearizer *>(
-        memory.TaskMalloc(SIZE_OF(Linearizer) + (SIZE_OF(L) * bounds.VerticalCount)));
+        memory.TaskMalloc(SIZE_OF(Linearizer) + (SIZE_OF(L) * bounds.RowCount)));
 
     new (linearizer) Linearizer(bounds);
 
-    for (int i = 0; i < bounds.VerticalCount; i++) {
+    for (int i = 0; i < bounds.RowCount; i++) {
         new (linearizer->mLA + i) L();
     }
 
@@ -362,8 +362,8 @@ FORCE_INLINE Linearizer<T, L> *Linearizer<T, L>::Create(ThreadMemory &memory, co
     } else {
         const int tx = T::TileColumnIndexToPoints(bounds.X);
         const int ty = T::TileRowIndexToPoints(bounds.Y);
-        const int ch = T::TileColumnIndexToPoints(bounds.HorizontalCount);
-        const int cv = T::TileRowIndexToPoints(bounds.VerticalCount);
+        const int ch = T::TileColumnIndexToPoints(bounds.ColumnCount);
+        const int cv = T::TileRowIndexToPoints(bounds.RowCount);
 
         const ClipBounds clip(ch, cv);
 
@@ -387,7 +387,7 @@ FORCE_INLINE Linearizer<T, L>::Linearizer(const TileBounds &bounds)
 template <typename T, typename L>
 FORCE_INLINE L *Linearizer<T, L>::LA(const int verticalIndex) {
     ASSERT(verticalIndex >= 0);
-    ASSERT(verticalIndex < mBounds.VerticalCount);
+    ASSERT(verticalIndex < mBounds.RowCount);
 
     return mLA + verticalIndex;
 }
@@ -412,8 +412,8 @@ FORCE_INLINE void Linearizer<T, L>::ProcessContained(const Geometry *geometry, T
 
     F24Dot8Point size;
 
-    size.X = T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount);
-    size.Y = T::TileRowIndexToF24Dot8(mBounds.VerticalCount);
+    size.X = T::TileColumnIndexToF24Dot8(mBounds.ColumnCount);
+    size.Y = T::TileRowIndexToF24Dot8(mBounds.RowCount);
 
     FloatPointsToF24Dot8Points(geometry->TM, pp, geometry->Points,
         pointCount, origin, size);
@@ -1668,17 +1668,17 @@ FORCE_INLINE void Linearizer<T, L>::AddContainedQuadraticF24Dot8(ThreadMemory &m
 {
     ASSERT(q != nullptr);
     ASSERT(q[0].X >= 0);
-    ASSERT(q[0].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(q[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(q[0].Y >= 0);
-    ASSERT(q[0].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(q[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(q[1].X >= 0);
-    ASSERT(q[1].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(q[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(q[1].Y >= 0);
-    ASSERT(q[1].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(q[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(q[2].X >= 0);
-    ASSERT(q[2].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(q[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(q[2].Y >= 0);
-    ASSERT(q[2].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(q[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
 
     if (IsQuadraticFlatEnough(q)) {
         AddContainedLineF24Dot8(memory, q[0], q[2]);
@@ -1700,21 +1700,21 @@ FORCE_INLINE void Linearizer<T, L>::AddContainedCubicF24Dot8(ThreadMemory &memor
 {
     ASSERT(c != nullptr);
     ASSERT(c[0].X >= 0);
-    ASSERT(c[0].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(c[0].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(c[0].Y >= 0);
-    ASSERT(c[0].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(c[0].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(c[1].X >= 0);
-    ASSERT(c[1].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(c[1].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(c[1].Y >= 0);
-    ASSERT(c[1].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(c[1].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(c[2].X >= 0);
-    ASSERT(c[2].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(c[2].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(c[2].Y >= 0);
-    ASSERT(c[2].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(c[2].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(c[3].X >= 0);
-    ASSERT(c[3].X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(c[3].X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(c[3].Y >= 0);
-    ASSERT(c[3].Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(c[3].Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
 
     if (IsCubicFlatEnough(c)) {
         AddContainedLineF24Dot8(memory, c[0], c[3]);
@@ -1816,9 +1816,9 @@ FORCE_INLINE void Linearizer<T, L>::AppendVerticalLine(ThreadMemory &memory,
     const F24Dot8 y1)
 {
     ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < mBounds.VerticalCount);
+    ASSERT(rowIndex < mBounds.RowCount);
     ASSERT(x >= 0);
-    ASSERT(x <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(x <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(y0 >= 0);
     ASSERT(y0 <= T::TileHF24Dot8);
     ASSERT(y1 >= 0);
@@ -2087,13 +2087,13 @@ FORCE_INLINE void Linearizer<T, L>::AddContainedLineF24Dot8(ThreadMemory &memory
     const F24Dot8Point p0, const F24Dot8Point p1)
 {
     ASSERT(p0.X >= 0);
-    ASSERT(p0.X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(p0.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(p0.Y >= 0);
-    ASSERT(p0.Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(p0.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(p1.X >= 0);
-    ASSERT(p1.X <= T::TileColumnIndexToF24Dot8(mBounds.HorizontalCount));
+    ASSERT(p1.X <= T::TileColumnIndexToF24Dot8(mBounds.ColumnCount));
     ASSERT(p1.Y >= 0);
-    ASSERT(p1.Y <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(p1.Y <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
 
     if (p0.Y == p1.Y) {
         // Ignore horizontal lines.
@@ -2259,9 +2259,9 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
     const F24Dot8 y0, const F24Dot8 y1)
 {
     ASSERT(y0 >= 0);
-    ASSERT(y0 <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(y0 <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
     ASSERT(y1 >= 0);
-    ASSERT(y1 <= T::TileRowIndexToF24Dot8(mBounds.VerticalCount));
+    ASSERT(y1 <= T::TileRowIndexToF24Dot8(mBounds.RowCount));
 
     if (y0 == y1) {
         // Not contributing to mask.
@@ -2271,7 +2271,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
     if (mStartCoverTable == nullptr) {
         // Allocate pointers to row masks.
         mStartCoverTable = memory.FrameMallocPointersZeroFill<int32>(
-            mBounds.VerticalCount);
+            mBounds.RowCount);
     }
 
     if (y0 < y1) {
@@ -2328,7 +2328,7 @@ FORCE_INLINE int32 *Linearizer<T, L>::GetStartCoversForRowAtIndex(ThreadMemory &
 {
     ASSERT(mStartCoverTable != nullptr);
     ASSERT(index >= 0);
-    ASSERT(index < mBounds.VerticalCount);
+    ASSERT(index < mBounds.RowCount);
 
     int32 *p = mStartCoverTable[index];
 
@@ -2350,7 +2350,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Up(ThreadMemory &memor
 {
     ASSERT(mStartCoverTable != nullptr);
     ASSERT(index >= 0);
-    ASSERT(index < mBounds.VerticalCount);
+    ASSERT(index < mBounds.RowCount);
 
     int32 *p = mStartCoverTable[index];
 
@@ -2374,7 +2374,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Down(ThreadMemory &mem
 {
     ASSERT(mStartCoverTable != nullptr);
     ASSERT(index >= 0);
-    ASSERT(index < mBounds.VerticalCount);
+    ASSERT(index < mBounds.RowCount);
 
     int32 *p = mStartCoverTable[index];
 

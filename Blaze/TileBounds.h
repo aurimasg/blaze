@@ -17,11 +17,11 @@ struct TileBounds final {
         const TileIndex horizontalCount, const TileIndex verticalCount)
     :   X(x),
         Y(y),
-        HorizontalCount(horizontalCount),
-        VerticalCount(verticalCount)
+        ColumnCount(horizontalCount),
+        RowCount(verticalCount)
     {
-        ASSERT(HorizontalCount > 0);
-        ASSERT(VerticalCount > 0);
+        ASSERT(ColumnCount > 0);
+        ASSERT(RowCount > 0);
     }
 
     // Minimum horizontal and vertical tile indices.
@@ -30,6 +30,6 @@ struct TileBounds final {
 
     // Horizontal and vertical tile counts. Total number of tiles covered
     // by a geometry can be calculated by multiplying these two values.
-    TileIndex HorizontalCount = 0;
-    TileIndex VerticalCount = 0;
+    TileIndex ColumnCount = 0;
+    TileIndex RowCount = 0;
 };

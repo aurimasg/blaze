@@ -270,7 +270,7 @@ private:
 template <typename T>
 FORCE_INLINE void *Rasterizer<T>::RasterizableGeometry::GetLinesForRow(const int rowIndex) const {
     ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.VerticalCount);
+    ASSERT(rowIndex < Bounds.RowCount);
 
     return Lines[rowIndex];
 }
@@ -279,7 +279,7 @@ FORCE_INLINE void *Rasterizer<T>::RasterizableGeometry::GetLinesForRow(const int
 template <typename T>
 FORCE_INLINE int Rasterizer<T>::RasterizableGeometry::GetFirstBlockLineCountForRow(const int rowIndex) const {
     ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.VerticalCount);
+    ASSERT(rowIndex < Bounds.RowCount);
 
     return FirstBlockLineCounts[rowIndex];
 }
@@ -288,7 +288,7 @@ FORCE_INLINE int Rasterizer<T>::RasterizableGeometry::GetFirstBlockLineCountForR
 template <typename T>
 FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetCoversForRow(const int rowIndex) const {
     ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.VerticalCount);
+    ASSERT(rowIndex < Bounds.RowCount);
 
     if (StartCoverTable == nullptr) {
         // No table at all.
@@ -302,7 +302,7 @@ FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetCoversForRow(c
 template <typename T>
 FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetActualCoversForRow(const int rowIndex) const {
     ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.VerticalCount);
+    ASSERT(rowIndex < Bounds.RowCount);
 
     if (StartCoverTable == nullptr) {
         // No table at all.
@@ -405,7 +405,7 @@ Rasterizer<T>::CreateRasterizable(void *placement, const Geometry *geometry, con
     const TileBounds bounds = CalculateTileBounds<T>(minx, miny, maxx, maxy);
 
     const bool narrow =
-        128 > (bounds.HorizontalCount * T::TileW);
+        128 > (bounds.ColumnCount * T::TileW);
 
     if (narrow) {
         return Linearize<LineArrayX16Y16>(placement, geometry, bounds,
@@ -439,12 +439,12 @@ Rasterizer<T>::Linearize(void *placement, const Geometry *geometry, const TileBo
     ASSERT(linearizer != nullptr);
 
     // Finalize.
-    void **lineBlocks = memory.FrameMallocArray<void *>(bounds.VerticalCount);
+    void **lineBlocks = memory.FrameMallocArray<void *>(bounds.RowCount);
 
     int32 *firstLineBlockCounts = memory.FrameMallocArray<int32>(
-        bounds.VerticalCount);
+        bounds.RowCount);
 
-    for (int i = 0; i < bounds.VerticalCount; i++) {
+    for (int i = 0; i < bounds.RowCount; i++) {
         const L *la = linearizer->GetLineArrayAtIndex(i);
 
         ASSERT(la != nullptr);
@@ -465,7 +465,7 @@ Rasterizer<T>::Linearize(void *placement, const Geometry *geometry, const TileBo
     int32 **startCoverTable = linearizer->GetStartCoverTable();
 
     if (startCoverTable != nullptr) {
-        for (int i = 0; i < bounds.VerticalCount; i++) {
+        for (int i = 0; i < bounds.RowCount; i++) {
             const int32 *t = startCoverTable[i];
 
             if (t != nullptr and T::CoverArrayContainsOnlyZeroes(t)) {
@@ -591,7 +591,7 @@ FORCE_INLINE void Rasterizer<T>::Rasterize(const Geometry *inputGeometries,
             const TileBounds b = rasterizable->Bounds;
 
             const TileIndex min = Clamp(b.Y, threadY, threadMaxY);
-            const TileIndex max = Clamp(b.Y + b.VerticalCount, threadY,
+            const TileIndex max = Clamp(b.Y + b.RowCount, threadY,
                 threadMaxY);
 
             if (min == max) {
@@ -1647,7 +1647,7 @@ FORCE_INLINE void Rasterizer<T>::RasterizeOneItem(const RasterizableItem *item,
     const ImageData &image)
 {
     // A maximum number of horizontal tiles.
-    const int horizontalCount = item->Rasterizable->Bounds.HorizontalCount;
+    const int horizontalCount = item->Rasterizable->Bounds.ColumnCount;
 
     ASSERT(horizontalCount <= columnCount);
 

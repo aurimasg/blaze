@@ -268,221 +268,6 @@ private:
 
 
 template <typename T>
-FORCE_INLINE void *Rasterizer<T>::RasterizableGeometry::GetLinesForRow(const int rowIndex) const {
-    ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.RowCount);
-
-    return Lines[rowIndex];
-}
-
-
-template <typename T>
-FORCE_INLINE int Rasterizer<T>::RasterizableGeometry::GetFirstBlockLineCountForRow(const int rowIndex) const {
-    ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.RowCount);
-
-    return FirstBlockLineCounts[rowIndex];
-}
-
-
-template <typename T>
-FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetCoversForRow(const int rowIndex) const {
-    ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.RowCount);
-
-    if (StartCoverTable == nullptr) {
-        // No table at all.
-        return nullptr;
-    }
-
-    return StartCoverTable[rowIndex];
-}
-
-
-template <typename T>
-FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetActualCoversForRow(const int rowIndex) const {
-    ASSERT(rowIndex >= 0);
-    ASSERT(rowIndex < Bounds.RowCount);
-
-    if (StartCoverTable == nullptr) {
-        // No table at all.
-        return T::ZeroCovers;
-    }
-
-    const int32 *covers = StartCoverTable[rowIndex];
-
-    if (covers == nullptr) {
-        return T::ZeroCovers;
-    }
-
-    return covers;
-}
-
-
-template <typename T>
-FORCE_INLINE Rasterizer<T>::RasterizableItem::RasterizableItem() {
-}
-
-
-template <typename T>
-FORCE_INLINE Rasterizer<T>::RasterizableItem::RasterizableItem(const RasterizableGeometry *rasterizable,
-    const int localRowIndex)
-:   Rasterizable(rasterizable),
-    LocalRowIndex(localRowIndex)
-{
-}
-
-
-template <typename T>
-FORCE_INLINE int Rasterizer<T>::RasterizableItem::GetFirstBlockLineCount() const  {
-    return Rasterizable->GetFirstBlockLineCountForRow(LocalRowIndex);
-}
-
-
-template <typename T>
-FORCE_INLINE const void *Rasterizer<T>::RasterizableItem::GetLineArray() const {
-    return Rasterizable->GetLinesForRow(LocalRowIndex);
-}
-
-
-template <typename T>
-FORCE_INLINE const int32 *Rasterizer<T>::RasterizableItem::GetActualCovers() const {
-    return Rasterizable->GetActualCoversForRow(LocalRowIndex);
-}
-
-
-template <typename T>
-FORCE_INLINE typename Rasterizer<T>::RasterizableGeometry *
-Rasterizer<T>::CreateRasterizable(void *placement, const Geometry *geometry, const IntSize imageSize, ThreadMemory &memory) {
-    ASSERT(placement != nullptr);
-    ASSERT(geometry != nullptr);
-    ASSERT(imageSize.Width > 0);
-    ASSERT(imageSize.Height > 0);
-
-    if (geometry->TagCount < 1) {
-        return nullptr;
-    }
-
-    // Path bounds in geometry are transformed by transformation matrix, but
-    // not intersected with destination image bounds (path bounds can be
-    // bigger than destination image bounds).
-    //
-    // Next step is to intersect transformed path bounds with destination
-    // image bounds and see if there is something left.
-    //
-    // Note that there is a special consideration regarding maximum X path
-    // bounding box edge. Consider path representing a rectangle. Vertical
-    // line going from top to bottom at the right edge of path bounding box.
-    // This line should close rectangle. But line clipper simply ignores it
-    // because it ignores all lines that have X coordinates equal to or to the
-    // right of path bounding box. As a result, this path is then drawn to the
-    // edge of destination image instead of terminating at the right rectangle
-    // edge.
-    //
-    // To solve this problem 1 is added to the maximum X coordinate of path
-    // bounding box to allow inserting vertical lines at the right edge of
-    // path bounding box so shapes get a chance to terminate fill. Perhaps
-    // there are better ways to solve this (maybe clipper should not ignore
-    // lines at the maximum X edge of path bounds?), but for now I'm keeping
-    // this fix.
-
-    const IntRect geometryBounds = geometry->PathBounds;
-
-    if (geometryBounds.MinX == geometryBounds.MaxX) {
-        return nullptr;
-    }
-
-    const int minx = Max(0, geometryBounds.MinX);
-    const int miny = Max(0, geometryBounds.MinY);
-    const int maxx = Min(imageSize.Width, geometryBounds.MaxX + 1);
-    const int maxy = Min(imageSize.Height, geometryBounds.MaxY);
-
-    if (minx >= maxx or miny >= maxy) {
-        // Geometry bounds do not intersect with destination image.
-        return nullptr;
-    }
-
-    const TileBounds bounds = CalculateTileBounds<T>(minx, miny, maxx, maxy);
-
-    const bool narrow =
-        128 > (bounds.ColumnCount * T::TileW);
-
-    if (narrow) {
-        return Linearize<LineArrayX16Y16>(placement, geometry, bounds,
-            imageSize, IterateLinesX16Y16, memory);
-    } else {
-        return Linearize<LineArrayX32Y16>(placement, geometry, bounds,
-            imageSize, IterateLinesX32Y16, memory);
-    }
-}
-
-
-template <typename T>
-template <typename L>
-FORCE_INLINE typename Rasterizer<T>::RasterizableGeometry *
-Rasterizer<T>::Linearize(void *placement, const Geometry *geometry, const TileBounds &bounds, const IntSize imageSize, const LineIterationFunction iterationFunction, ThreadMemory &memory) {
-    RasterizableGeometry *linearized = new (placement) RasterizableGeometry(
-        geometry, iterationFunction, bounds);
-
-    // Determine if path is completely within destination image bounds. If
-    // geometry bounds fit within destination image, a shortcut can be made
-    // when generating lines.
-    const bool contains =
-        geometry->PathBounds.MinX >= 0 and
-        geometry->PathBounds.MinY >= 0 and
-        geometry->PathBounds.MaxX <= imageSize.Width and
-        geometry->PathBounds.MaxY <= imageSize.Height;
-
-    Linearizer<T, L> *linearizer =
-        Linearizer<T, L>::Create(memory, bounds, contains, geometry);
-
-    ASSERT(linearizer != nullptr);
-
-    // Finalize.
-    void **lineBlocks = memory.FrameMallocArray<void *>(bounds.RowCount);
-
-    int32 *firstLineBlockCounts = memory.FrameMallocArray<int32>(
-        bounds.RowCount);
-
-    for (int i = 0; i < bounds.RowCount; i++) {
-        const L *la = linearizer->GetLineArrayAtIndex(i);
-
-        ASSERT(la != nullptr);
-
-        if (la->GetFrontBlock() == nullptr) {
-            lineBlocks[i] = nullptr;
-            firstLineBlockCounts[i] = 0;
-            continue;
-        }
-
-        lineBlocks[i] = la->GetFrontBlock();
-        firstLineBlockCounts[i] = la->GetFrontBlockLineCount();
-    }
-
-    linearized->Lines = lineBlocks;
-    linearized->FirstBlockLineCounts = firstLineBlockCounts;
-
-    int32 **startCoverTable = linearizer->GetStartCoverTable();
-
-    if (startCoverTable != nullptr) {
-        for (int i = 0; i < bounds.RowCount; i++) {
-            const int32 *t = startCoverTable[i];
-
-            if (t != nullptr and T::CoverArrayContainsOnlyZeroes(t)) {
-                // Don't need cover array after all, all segments cancelled
-                // each other.
-                startCoverTable[i] = nullptr;
-            }
-        }
-
-        linearized->StartCoverTable = startCoverTable;
-    }
-
-    return linearized;
-}
-
-
-template <typename T>
 FORCE_INLINE void Rasterizer<T>::Rasterize(const Geometry *inputGeometries,
     const int inputGeometryCount, const Matrix &matrix, Threads &threads,
     const ImageData &image)
@@ -636,60 +421,274 @@ FORCE_INLINE void Rasterizer<T>::Rasterize(const Geometry *inputGeometries,
 
 
 template <typename T>
-void Rasterizer<T>::CellVertical(BitVector **bitVectorTable,
-    int32 **coverAreaTable, const PixelIndex px, const PixelIndex py,
-    const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1)
+FORCE_INLINE void *Rasterizer<T>::RasterizableGeometry::GetLinesForRow(const int rowIndex) const {
+    ASSERT(rowIndex >= 0);
+    ASSERT(rowIndex < Bounds.RowCount);
+
+    return Lines[rowIndex];
+}
+
+
+template <typename T>
+FORCE_INLINE int Rasterizer<T>::RasterizableGeometry::GetFirstBlockLineCountForRow(const int rowIndex) const {
+    ASSERT(rowIndex >= 0);
+    ASSERT(rowIndex < Bounds.RowCount);
+
+    return FirstBlockLineCounts[rowIndex];
+}
+
+
+template <typename T>
+FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetCoversForRow(const int rowIndex) const {
+    ASSERT(rowIndex >= 0);
+    ASSERT(rowIndex < Bounds.RowCount);
+
+    if (StartCoverTable == nullptr) {
+        // No table at all.
+        return nullptr;
+    }
+
+    return StartCoverTable[rowIndex];
+}
+
+
+template <typename T>
+FORCE_INLINE const int32 *Rasterizer<T>::RasterizableGeometry::GetActualCoversForRow(const int rowIndex) const {
+    ASSERT(rowIndex >= 0);
+    ASSERT(rowIndex < Bounds.RowCount);
+
+    if (StartCoverTable == nullptr) {
+        // No table at all.
+        return T::ZeroCovers;
+    }
+
+    const int32 *covers = StartCoverTable[rowIndex];
+
+    if (covers == nullptr) {
+        return T::ZeroCovers;
+    }
+
+    return covers;
+}
+
+
+template <typename T>
+FORCE_INLINE Rasterizer<T>::RasterizableItem::RasterizableItem() {
+}
+
+
+template <typename T>
+FORCE_INLINE Rasterizer<T>::RasterizableItem::RasterizableItem(const RasterizableGeometry *rasterizable,
+    const int localRowIndex)
+:   Rasterizable(rasterizable),
+    LocalRowIndex(localRowIndex)
 {
-    ASSERT(px >= 0);
-    ASSERT(py >= 0);
-    ASSERT(py < T::TileH);
+}
 
-    const F24Dot8 delta = y0 - y1;
-    const F24Dot8 a = delta * (F24Dot8_2 - x - x);
-    const int index = px << 1;
-    int32 *ca = coverAreaTable[py];
 
-    if (ConditionalSetBit(bitVectorTable[py], px)) {
-        // New.
-        ca[index] = delta;
-        ca[index + 1] = a;
-    } else {
-        // Update old.
-        const int32 cover = ca[index];
-        const int32 area = ca[index + 1];
+template <typename T>
+FORCE_INLINE int Rasterizer<T>::RasterizableItem::GetFirstBlockLineCount() const  {
+    return Rasterizable->GetFirstBlockLineCountForRow(LocalRowIndex);
+}
 
-        ca[index] = cover + delta;
-        ca[index + 1] = area + a;
+
+template <typename T>
+FORCE_INLINE const void *Rasterizer<T>::RasterizableItem::GetLineArray() const {
+    return Rasterizable->GetLinesForRow(LocalRowIndex);
+}
+
+
+template <typename T>
+FORCE_INLINE const int32 *Rasterizer<T>::RasterizableItem::GetActualCovers() const {
+    return Rasterizable->GetActualCoversForRow(LocalRowIndex);
+}
+
+
+template <typename T>
+FORCE_INLINE void Rasterizer<T>::IterateLinesX32Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
+    int count = item->GetFirstBlockLineCount();
+
+    const LineArrayX32Y16::Block *v =
+        static_cast<const LineArrayX32Y16::Block *>(item->GetLineArray());
+
+    while (v != nullptr) {
+        const F8Dot8x2 *yy = v->Y0Y1;
+        const F24Dot8 *xx0 = v->X0;
+        const F24Dot8 *xx1 = v->X1;
+
+        for (int i = 0; i < count; i++) {
+            const F8Dot8x2 y0y1 = yy[i];
+            const F24Dot8 x0 = xx0[i];
+            const F24Dot8 x1 = xx1[i];
+
+            RasterizeLine(x0, UnpackLoFromF8Dot8x2(y0y1), x1,
+                UnpackHiFromF8Dot8x2(y0y1), bitVectorTable,
+                coverAreaTable);
+        }
+
+        v = v->Next;
+        count = LineArrayX32Y16::Block::LinesPerBlock;
     }
 }
 
 
 template <typename T>
-void Rasterizer<T>::Cell(BitVector **bitVectorTable, int32 **coverAreaTable,
-    const PixelIndex px, const PixelIndex py, const F24Dot8 x0,
-    const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1)
-{
-    ASSERT(px >= 0);
-    ASSERT(py >= 0);
-    ASSERT(py < T::TileH);
+FORCE_INLINE void Rasterizer<T>::IterateLinesX16Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
+    int count = item->GetFirstBlockLineCount();
 
-    const F24Dot8 delta = y0 - y1;
-    const F24Dot8 a = delta * (F24Dot8_2 - x0 - x1);
-    const int index = px << 1;
-    int32 *ca = coverAreaTable[py];
+    const LineArrayX16Y16::Block *v =
+        static_cast<const LineArrayX16Y16::Block *>(item->GetLineArray());
 
-    if (ConditionalSetBit(bitVectorTable[py], px)) {
-        // New.
-        ca[index] = delta;
-        ca[index + 1] = a;
-    } else {
-        // Update old.
-        const int32 cover = ca[index];
-        const int32 area = ca[index + 1];
+    while (v != nullptr) {
+        const F8Dot8x2 *yy = v->Y0Y1;
+        const F8Dot8x2 *xx = v->X0X1;
 
-        ca[index] = cover + delta;
-        ca[index + 1] = area + a;
+        for (int i = 0; i < count; i++) {
+            const F8Dot8x2 y0y1 = yy[i];
+            const F8Dot8x2 x0x1 = xx[i];
+
+            RasterizeLine(
+                UnpackLoFromF8Dot8x2(x0x1),
+                UnpackLoFromF8Dot8x2(y0y1),
+                UnpackHiFromF8Dot8x2(x0x1),
+                UnpackHiFromF8Dot8x2(y0y1), bitVectorTable,
+                coverAreaTable);
+        }
+
+        v = v->Next;
+        count = LineArrayX32Y16::Block::LinesPerBlock;
     }
+}
+
+
+template <typename T>
+FORCE_INLINE typename Rasterizer<T>::RasterizableGeometry *
+Rasterizer<T>::CreateRasterizable(void *placement, const Geometry *geometry, const IntSize imageSize, ThreadMemory &memory) {
+    ASSERT(placement != nullptr);
+    ASSERT(geometry != nullptr);
+    ASSERT(imageSize.Width > 0);
+    ASSERT(imageSize.Height > 0);
+
+    if (geometry->TagCount < 1) {
+        return nullptr;
+    }
+
+    // Path bounds in geometry are transformed by transformation matrix, but
+    // not intersected with destination image bounds (path bounds can be
+    // bigger than destination image bounds).
+    //
+    // Next step is to intersect transformed path bounds with destination
+    // image bounds and see if there is something left.
+    //
+    // Note that there is a special consideration regarding maximum X path
+    // bounding box edge. Consider path representing a rectangle. Vertical
+    // line going from top to bottom at the right edge of path bounding box.
+    // This line should close rectangle. But line clipper simply ignores it
+    // because it ignores all lines that have X coordinates equal to or to the
+    // right of path bounding box. As a result, this path is then drawn to the
+    // edge of destination image instead of terminating at the right rectangle
+    // edge.
+    //
+    // To solve this problem 1 is added to the maximum X coordinate of path
+    // bounding box to allow inserting vertical lines at the right edge of
+    // path bounding box so shapes get a chance to terminate fill. Perhaps
+    // there are better ways to solve this (maybe clipper should not ignore
+    // lines at the maximum X edge of path bounds?), but for now I'm keeping
+    // this fix.
+
+    const IntRect geometryBounds = geometry->PathBounds;
+
+    if (geometryBounds.MinX == geometryBounds.MaxX) {
+        return nullptr;
+    }
+
+    const int minx = Max(0, geometryBounds.MinX);
+    const int miny = Max(0, geometryBounds.MinY);
+    const int maxx = Min(imageSize.Width, geometryBounds.MaxX + 1);
+    const int maxy = Min(imageSize.Height, geometryBounds.MaxY);
+
+    if (minx >= maxx or miny >= maxy) {
+        // Geometry bounds do not intersect with destination image.
+        return nullptr;
+    }
+
+    const TileBounds bounds = CalculateTileBounds<T>(minx, miny, maxx, maxy);
+
+    const bool narrow =
+        128 > (bounds.ColumnCount * T::TileW);
+
+    if (narrow) {
+        return Linearize<LineArrayX16Y16>(placement, geometry, bounds,
+            imageSize, IterateLinesX16Y16, memory);
+    } else {
+        return Linearize<LineArrayX32Y16>(placement, geometry, bounds,
+            imageSize, IterateLinesX32Y16, memory);
+    }
+}
+
+
+template <typename T>
+template <typename L>
+FORCE_INLINE typename Rasterizer<T>::RasterizableGeometry *
+Rasterizer<T>::Linearize(void *placement, const Geometry *geometry, const TileBounds &bounds, const IntSize imageSize, const LineIterationFunction iterationFunction, ThreadMemory &memory) {
+    RasterizableGeometry *linearized = new (placement) RasterizableGeometry(
+        geometry, iterationFunction, bounds);
+
+    // Determine if path is completely within destination image bounds. If
+    // geometry bounds fit within destination image, a shortcut can be made
+    // when generating lines.
+    const bool contains =
+        geometry->PathBounds.MinX >= 0 and
+        geometry->PathBounds.MinY >= 0 and
+        geometry->PathBounds.MaxX <= imageSize.Width and
+        geometry->PathBounds.MaxY <= imageSize.Height;
+
+    Linearizer<T, L> *linearizer =
+        Linearizer<T, L>::Create(memory, bounds, contains, geometry);
+
+    ASSERT(linearizer != nullptr);
+
+    // Finalize.
+    void **lineBlocks = memory.FrameMallocArray<void *>(bounds.RowCount);
+
+    int32 *firstLineBlockCounts = memory.FrameMallocArray<int32>(
+        bounds.RowCount);
+
+    for (int i = 0; i < bounds.RowCount; i++) {
+        const L *la = linearizer->GetLineArrayAtIndex(i);
+
+        ASSERT(la != nullptr);
+
+        if (la->GetFrontBlock() == nullptr) {
+            lineBlocks[i] = nullptr;
+            firstLineBlockCounts[i] = 0;
+            continue;
+        }
+
+        lineBlocks[i] = la->GetFrontBlock();
+        firstLineBlockCounts[i] = la->GetFrontBlockLineCount();
+    }
+
+    linearized->Lines = lineBlocks;
+    linearized->FirstBlockLineCounts = firstLineBlockCounts;
+
+    int32 **startCoverTable = linearizer->GetStartCoverTable();
+
+    if (startCoverTable != nullptr) {
+        for (int i = 0; i < bounds.RowCount; i++) {
+            const int32 *t = startCoverTable[i];
+
+            if (t != nullptr and T::CoverArrayContainsOnlyZeroes(t)) {
+                // Don't need cover array after all, all segments cancelled
+                // each other.
+                startCoverTable[i] = nullptr;
+            }
+        }
+
+        linearized->StartCoverTable = startCoverTable;
+    }
+
+    return linearized;
 }
 
 
@@ -743,6 +742,64 @@ FORCE_INLINE void Rasterizer<T>::Vertical_Up(BitVector **bitVectorTable,
         }
 
         CellVertical(bitVectorTable, coverAreaTable, columnIndex, rowIndex1, fx, F24Dot8_1, fy1);
+    }
+}
+
+
+template <typename T>
+void Rasterizer<T>::CellVertical(BitVector **bitVectorTable,
+    int32 **coverAreaTable, const PixelIndex px, const PixelIndex py,
+    const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1)
+{
+    ASSERT(px >= 0);
+    ASSERT(py >= 0);
+    ASSERT(py < T::TileH);
+
+    const F24Dot8 delta = y0 - y1;
+    const F24Dot8 a = delta * (F24Dot8_2 - x - x);
+    const int index = px << 1;
+    int32 *ca = coverAreaTable[py];
+
+    if (ConditionalSetBit(bitVectorTable[py], px)) {
+        // New.
+        ca[index] = delta;
+        ca[index + 1] = a;
+    } else {
+        // Update old.
+        const int32 cover = ca[index];
+        const int32 area = ca[index + 1];
+
+        ca[index] = cover + delta;
+        ca[index + 1] = area + a;
+    }
+}
+
+
+template <typename T>
+void Rasterizer<T>::Cell(BitVector **bitVectorTable, int32 **coverAreaTable,
+    const PixelIndex px, const PixelIndex py, const F24Dot8 x0,
+    const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1)
+{
+    ASSERT(px >= 0);
+    ASSERT(py >= 0);
+    ASSERT(py < T::TileH);
+
+    const F24Dot8 delta = y0 - y1;
+    const F24Dot8 a = delta * (F24Dot8_2 - x0 - x1);
+    const int index = px << 1;
+    int32 *ca = coverAreaTable[py];
+
+    if (ConditionalSetBit(bitVectorTable[py], px)) {
+        // New.
+        ca[index] = delta;
+        ca[index + 1] = a;
+    } else {
+        // Update old.
+        const int32 cover = ca[index];
+        const int32 area = ca[index + 1];
+
+        ca[index] = cover + delta;
+        ca[index + 1] = area + a;
     }
 }
 
@@ -1581,66 +1638,6 @@ FORCE_INLINE void Rasterizer<T>::RenderOneLine(uint8 *image,
 }
 
 
-template <typename T>
-FORCE_INLINE void Rasterizer<T>::IterateLinesX32Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
-    int count = item->GetFirstBlockLineCount();
-
-    const LineArrayX32Y16::Block *v =
-        static_cast<const LineArrayX32Y16::Block *>(item->GetLineArray());
-
-    while (v != nullptr) {
-        const F8Dot8x2 *yy = v->Y0Y1;
-        const F24Dot8 *xx0 = v->X0;
-        const F24Dot8 *xx1 = v->X1;
-
-        for (int i = 0; i < count; i++) {
-            const F8Dot8x2 y0y1 = yy[i];
-            const F24Dot8 x0 = xx0[i];
-            const F24Dot8 x1 = xx1[i];
-
-            RasterizeLine(x0, UnpackLoFromF8Dot8x2(y0y1), x1,
-                UnpackHiFromF8Dot8x2(y0y1), bitVectorTable,
-                coverAreaTable);
-        }
-
-        v = v->Next;
-        count = LineArrayX32Y16::Block::LinesPerBlock;
-    }
-}
-
-
-template <typename T>
-FORCE_INLINE void Rasterizer<T>::IterateLinesX16Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
-    int count = item->GetFirstBlockLineCount();
-
-    const LineArrayX16Y16::Block *v =
-        static_cast<const LineArrayX16Y16::Block *>(item->GetLineArray());
-
-    while (v != nullptr) {
-        const F8Dot8x2 *yy = v->Y0Y1;
-        const F8Dot8x2 *xx = v->X0X1;
-
-        for (int i = 0; i < count; i++) {
-            const F8Dot8x2 y0y1 = yy[i];
-            const F8Dot8x2 x0x1 = xx[i];
-
-            RasterizeLine(
-                UnpackLoFromF8Dot8x2(x0x1),
-                UnpackLoFromF8Dot8x2(y0y1),
-                UnpackHiFromF8Dot8x2(x0x1),
-                UnpackHiFromF8Dot8x2(y0y1), bitVectorTable,
-                coverAreaTable);
-        }
-
-        v = v->Next;
-        count = LineArrayX32Y16::Block::LinesPerBlock;
-    }
-}
-
-
-/**
- * Rasterize one item within a single row.
- */
 template <typename T>
 FORCE_INLINE void Rasterizer<T>::RasterizeOneItem(const RasterizableItem *item,
     BitVector **bitVectorTable, int32 **coverAreaTable, const int columnCount,

@@ -2,6 +2,7 @@
 #pragma once
 
 
+#include "LineArrayTiled.h"
 #include "LineArrayX16Y16.h"
 #include "LineArrayX32Y16.h"
 #include <new>
@@ -16,6 +17,13 @@ public:
 
 
    ~LineBlockAllocator();
+
+
+    /**
+     * Returns new tiled line array block. Returned memory is not zero-filled.
+     */
+    template <typename T>
+    typename LineArrayTiled<T>::Block *NewTiledBlock(typename LineArrayTiled<T>::Block *next);
 
 
     /**
@@ -82,6 +90,12 @@ private:
 private:
     DISABLE_COPY_AND_ASSIGN(LineBlockAllocator);
 };
+
+
+template <typename T>
+FORCE_INLINE typename LineArrayTiled<T>::Block *LineBlockAllocator::NewTiledBlock(typename LineArrayTiled<T>::Block *next) {
+    return NewBlock<typename LineArrayTiled<T>::Block>(next);
+}
 
 
 FORCE_INLINE LineArrayX16Y16::Block *LineBlockAllocator::NewX16Y16Block(LineArrayX16Y16::Block *next) {

@@ -38,9 +38,13 @@ struct LineArrayX32Y16 final {
         DISABLE_COPY_AND_ASSIGN(Block);
     };
 
+public:
 
     Block *GetFrontBlock() const;
     int GetFrontBlockLineCount() const;
+
+public:
+
     void AppendVerticalLine(ThreadMemory &memory, const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1);
     void AppendLineDownR_V(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
     void AppendLineUpR_V(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);

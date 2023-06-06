@@ -175,6 +175,15 @@ public:
 
 
     /**
+     * Returns new tiled line array block. Returned memory is not zero-filled.
+     *
+     * Line blocks are always allocated from frame memory.
+     */
+    template <typename T>
+    typename LineArrayTiled<T>::Block *FrameNewTiledBlock(typename LineArrayTiled<T>::Block *next);
+
+
+    /**
      * Returns new narrow line array block. Returned memory is not
      * zero-filled.
      *
@@ -287,6 +296,12 @@ FORCE_INLINE T *ThreadMemory::FrameNew(Args&&... args) {
 
 FORCE_INLINE void *ThreadMemory::FrameMalloc(const int size) {
     return mFrameAllocator.Malloc(size);
+}
+
+
+template <typename T>
+FORCE_INLINE typename LineArrayTiled<T>::Block *ThreadMemory::FrameNewTiledBlock(typename LineArrayTiled<T>::Block *next) {
+    return mFrameLineBlockAllocator.NewTiledBlock<T>(next);
 }
 
 

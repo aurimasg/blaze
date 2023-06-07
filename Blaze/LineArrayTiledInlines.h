@@ -4,14 +4,16 @@
 
 template <typename T>
 FORCE_INLINE void LineArrayTiled<T>::Construct(LineArrayTiled<T> *placement,
-    const int count, ThreadMemory &memory)
+    const TileIndex rowCount, const TileIndex columnCount,
+    ThreadMemory &memory)
 {
     ASSERT(placement != nullptr);
-    ASSERT(count > 0);
+    ASSERT(rowCount > 0);
+    ASSERT(columnCount > 0);
 
     LineArrayTiled<T> *p = static_cast<LineArrayTiled<T> *>(placement);
 
-    for (int i = 0; i < count; i++) {
+    for (TileIndex i = 0; i < rowCount; i++) {
         new (p + i) LineArrayTiled<T>();
     }
 }

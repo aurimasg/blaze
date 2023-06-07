@@ -37,7 +37,9 @@ private:
 template <typename T>
 struct LineArrayTiled final {
 
-    static void Construct(LineArrayTiled<T> *placement, const int count, ThreadMemory &memory);
+    static void Construct(LineArrayTiled<T> *placement,
+        const TileIndex rowCount, const TileIndex columnCount,
+        ThreadMemory &memory);
 
     LineArrayTiledBlock *GetFrontBlock() const;
     int GetFrontBlockLineCount() const;

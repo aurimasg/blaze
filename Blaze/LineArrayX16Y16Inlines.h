@@ -3,12 +3,14 @@
 
 
 FORCE_INLINE void LineArrayX16Y16::Construct(LineArrayX16Y16 *placement,
-    const int count, ThreadMemory &memory)
+    const TileIndex rowCount, const TileIndex columnCount,
+    ThreadMemory &memory)
 {
     ASSERT(placement != nullptr);
-    ASSERT(count > 0);
+    ASSERT(rowCount > 0);
+    ASSERT(columnCount > 0);
 
-    for (int i = 0; i < count; i++) {
+    for (TileIndex i = 0; i < rowCount; i++) {
         new (placement + i) LineArrayX16Y16();
     }
 }

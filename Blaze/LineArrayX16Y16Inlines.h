@@ -2,6 +2,18 @@
 #pragma once
 
 
+FORCE_INLINE void LineArrayX16Y16::Construct(LineArrayX16Y16 *placement,
+    const int count, ThreadMemory &memory)
+{
+    ASSERT(placement != nullptr);
+    ASSERT(count > 0);
+
+    for (int i = 0; i < count; i++) {
+        new (placement + i) LineArrayX16Y16();
+    }
+}
+
+
 FORCE_INLINE LineArrayX16Y16::Block *LineArrayX16Y16::GetFrontBlock() const {
     return mCurrent;
 }

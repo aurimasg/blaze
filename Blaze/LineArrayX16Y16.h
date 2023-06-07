@@ -39,6 +39,9 @@ struct LineArrayX16Y16 final {
 
 public:
 
+    static void Construct(LineArrayX16Y16 *placement, const int count,
+        ThreadMemory &memory);
+
     Block *GetFrontBlock() const;
     int GetFrontBlockLineCount() const;
 

@@ -330,9 +330,7 @@ FORCE_INLINE Linearizer<T, L> *Linearizer<T, L>::Create(ThreadMemory &memory, co
 
     new (linearizer) Linearizer(bounds);
 
-    for (int i = 0; i < bounds.RowCount; i++) {
-        new (linearizer->mLA + i) L();
-    }
+    L::Construct(linearizer->mLA, bounds.RowCount, memory);
 
     if (contains) {
         linearizer->ProcessContained(geometry, memory);

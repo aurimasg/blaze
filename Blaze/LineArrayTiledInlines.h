@@ -3,6 +3,21 @@
 
 
 template <typename T>
+FORCE_INLINE void LineArrayTiled<T>::Construct(LineArrayTiled<T> *placement,
+    const int count, ThreadMemory &memory)
+{
+    ASSERT(placement != nullptr);
+    ASSERT(count > 0);
+
+    LineArrayTiled<T> *p = static_cast<LineArrayTiled<T> *>(placement);
+
+    for (int i = 0; i < count; i++) {
+        new (p + i) LineArrayTiled<T>();
+    }
+}
+
+
+template <typename T>
 FORCE_INLINE LineArrayTiledBlock *LineArrayTiled<T>::GetFrontBlock() const {
     return mCurrent;
 }

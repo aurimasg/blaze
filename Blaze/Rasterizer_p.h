@@ -508,8 +508,8 @@ template <typename T>
 FORCE_INLINE void Rasterizer<T>::IterateLinesX32Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
     int count = item->GetFirstBlockLineCount();
 
-    const LineArrayX32Y16::Block *v =
-        static_cast<const LineArrayX32Y16::Block *>(item->GetLineArray());
+    const LineArrayX32Y16Block *v =
+        static_cast<const LineArrayX32Y16Block *>(item->GetLineArray());
 
     while (v != nullptr) {
         const F8Dot8x2 *yy = v->Y0Y1;
@@ -527,7 +527,7 @@ FORCE_INLINE void Rasterizer<T>::IterateLinesX32Y16(const RasterizableItem *item
         }
 
         v = v->Next;
-        count = LineArrayX32Y16::Block::LinesPerBlock;
+        count = LineArrayX32Y16Block::LinesPerBlock;
     }
 }
 
@@ -536,8 +536,8 @@ template <typename T>
 FORCE_INLINE void Rasterizer<T>::IterateLinesX16Y16(const RasterizableItem *item, BitVector **bitVectorTable, int32 **coverAreaTable) {
     int count = item->GetFirstBlockLineCount();
 
-    const LineArrayX16Y16::Block *v =
-        static_cast<const LineArrayX16Y16::Block *>(item->GetLineArray());
+    const LineArrayX16Y16Block *v =
+        static_cast<const LineArrayX16Y16Block *>(item->GetLineArray());
 
     while (v != nullptr) {
         const F8Dot8x2 *yy = v->Y0Y1;
@@ -556,7 +556,7 @@ FORCE_INLINE void Rasterizer<T>::IterateLinesX16Y16(const RasterizableItem *item
         }
 
         v = v->Next;
-        count = LineArrayX32Y16::Block::LinesPerBlock;
+        count = LineArrayX32Y16Block::LinesPerBlock;
     }
 }
 

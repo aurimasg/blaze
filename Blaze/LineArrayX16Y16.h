@@ -9,40 +9,40 @@
 class ThreadMemory;
 
 
-struct LineArrayX16Y16 final {
-    LineArrayX16Y16() {
+struct LineArrayX16Y16Block final {
+    constexpr explicit LineArrayX16Y16Block(LineArrayX16Y16Block *next)
+    :   Next(next)
+    {
     }
 
 
-    struct Block final {
-        constexpr explicit Block(Block *next)
-        :   Next(next)
-        {
-        }
+    static constexpr int LinesPerBlock = 32;
 
 
-        static constexpr int LinesPerBlock = 32;
+    // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
+    // integer.
+    F8Dot8x2 Y0Y1[LinesPerBlock];
+    F8Dot8x2 X0X1[LinesPerBlock];
+
+    // Pointer to the next block of lines in the same row.
+    LineArrayX16Y16Block *Next = nullptr;
+private:
+    LineArrayX16Y16Block() = delete;
+private:
+    DISABLE_COPY_AND_ASSIGN(LineArrayX16Y16Block);
+};
 
 
-        // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
-        // integer.
-        F8Dot8x2 Y0Y1[LinesPerBlock];
-        F8Dot8x2 X0X1[LinesPerBlock];
-
-        // Pointer to the next block of lines in the same row.
-        Block *Next = nullptr;
-    private:
-        Block() = delete;
-    private:
-        DISABLE_COPY_AND_ASSIGN(Block);
-    };
+struct LineArrayX16Y16 final {
+    LineArrayX16Y16() {
+    }
 
 public:
 
     static void Construct(LineArrayX16Y16 *placement, const int count,
         ThreadMemory &memory);
 
-    Block *GetFrontBlock() const;
+    LineArrayX16Y16Block *GetFrontBlock() const;
     int GetFrontBlockLineCount() const;
 
 public:
@@ -59,8 +59,8 @@ private:
     void AppendLine(ThreadMemory &memory, const F8Dot8x2 y0y1, const F8Dot8x2 x0x1);
     void AppendLine(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
 private:
-    Block *mCurrent = nullptr;
-    int mCount = Block::LinesPerBlock;
+    LineArrayX16Y16Block *mCurrent = nullptr;
+    int mCount = LineArrayX16Y16Block::LinesPerBlock;
 private:
     DISABLE_COPY_AND_ASSIGN(LineArrayX16Y16);
 };

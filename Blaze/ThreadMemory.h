@@ -188,7 +188,7 @@ public:
      *
      * Line blocks are always allocated from frame memory.
      */
-    LineArrayX16Y16::Block *FrameNewX16Y16Block(LineArrayX16Y16::Block *next);
+    LineArrayX16Y16Block *FrameNewX16Y16Block(LineArrayX16Y16Block *next);
 
 
     /**
@@ -197,7 +197,7 @@ public:
      *
      * Line blocks are always allocated from frame memory.
      */
-    LineArrayX32Y16::Block *FrameNewX32Y16Block(LineArrayX32Y16::Block *next);
+    LineArrayX32Y16Block *FrameNewX32Y16Block(LineArrayX32Y16Block *next);
 
 
     /**
@@ -303,12 +303,12 @@ FORCE_INLINE LineArrayTiledBlock *ThreadMemory::FrameNewTiledBlock(LineArrayTile
 }
 
 
-FORCE_INLINE LineArrayX16Y16::Block *ThreadMemory::FrameNewX16Y16Block(LineArrayX16Y16::Block *next) {
+FORCE_INLINE LineArrayX16Y16Block *ThreadMemory::FrameNewX16Y16Block(LineArrayX16Y16Block *next) {
     return mFrameLineBlockAllocator.NewX16Y16Block(next);
 }
 
 
-FORCE_INLINE LineArrayX32Y16::Block *ThreadMemory::FrameNewX32Y16Block(LineArrayX32Y16::Block *next) {
+FORCE_INLINE LineArrayX32Y16Block *ThreadMemory::FrameNewX32Y16Block(LineArrayX32Y16Block *next) {
     return mFrameLineBlockAllocator.NewX32Y16Block(next);
 }
 

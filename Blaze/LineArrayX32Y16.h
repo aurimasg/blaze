@@ -9,41 +9,41 @@
 class ThreadMemory;
 
 
-struct LineArrayX32Y16 final {
-    LineArrayX32Y16() {
+struct LineArrayX32Y16Block final {
+    constexpr explicit LineArrayX32Y16Block(LineArrayX32Y16Block *next)
+    :   Next(next)
+    {
     }
 
 
-    struct Block final {
-        constexpr explicit Block(Block *next)
-        :   Next(next)
-        {
-        }
+    static constexpr int LinesPerBlock = 32;
 
 
-        static constexpr int LinesPerBlock = 32;
+    // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
+    // integer.
+    F8Dot8x2 Y0Y1[LinesPerBlock];
+    F24Dot8 X0[LinesPerBlock];
+    F24Dot8 X1[LinesPerBlock];
+
+    // Pointer to the next block of lines in the same row.
+    LineArrayX32Y16Block *Next = nullptr;
+private:
+    LineArrayX32Y16Block() = delete;
+private:
+    DISABLE_COPY_AND_ASSIGN(LineArrayX32Y16Block);
+};
 
 
-        // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
-        // integer.
-        F8Dot8x2 Y0Y1[LinesPerBlock];
-        F24Dot8 X0[LinesPerBlock];
-        F24Dot8 X1[LinesPerBlock];
-
-        // Pointer to the next block of lines in the same row.
-        Block *Next = nullptr;
-    private:
-        Block() = delete;
-    private:
-        DISABLE_COPY_AND_ASSIGN(Block);
-    };
+struct LineArrayX32Y16 final {
+    LineArrayX32Y16() {
+    }
 
 public:
 
     static void Construct(LineArrayX32Y16 *placement, const int count,
         ThreadMemory &memory);
 
-    Block *GetFrontBlock() const;
+    LineArrayX32Y16Block *GetFrontBlock() const;
     int GetFrontBlockLineCount() const;
 
 public:
@@ -60,8 +60,8 @@ private:
     void AppendLine(ThreadMemory &memory, const F8Dot8x2 y0y1, const F24Dot8 x0, const F24Dot8 x1);
     void AppendLine(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
 private:
-    Block *mCurrent = nullptr;
-    int mCount = Block::LinesPerBlock;
+    LineArrayX32Y16Block *mCurrent = nullptr;
+    int mCount = LineArrayX32Y16Block::LinesPerBlock;
 private:
     DISABLE_COPY_AND_ASSIGN(LineArrayX32Y16);
 };

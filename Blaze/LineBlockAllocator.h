@@ -29,13 +29,13 @@ public:
      * Returns new narrow line array block. Returned memory is not
      * zero-filled.
      */
-    LineArrayX16Y16::Block *NewX16Y16Block(LineArrayX16Y16::Block *next);
+    LineArrayX16Y16Block *NewX16Y16Block(LineArrayX16Y16Block *next);
 
 
     /**
      * Returns new wide line array block. Returned memory is not zero-filled.
      */
-    LineArrayX32Y16::Block *NewX32Y16Block(LineArrayX32Y16::Block *next);
+    LineArrayX32Y16Block *NewX32Y16Block(LineArrayX32Y16Block *next);
 
 
     /**
@@ -46,10 +46,11 @@ public:
 
 private:
 
-    // If these get bigger, there is probably too much wasted
-    // memory for most input paths.
-    STATIC_ASSERT(SIZE_OF(LineArrayX16Y16::Block) <= 1024);
-    STATIC_ASSERT(SIZE_OF(LineArrayX32Y16::Block) <= 1024);
+    // If these get bigger, there is probably too much wasted memory for most
+    // input paths.
+    STATIC_ASSERT(SIZE_OF(LineArrayTiledBlock) <= 1024);
+    STATIC_ASSERT(SIZE_OF(LineArrayX16Y16Block) <= 1024);
+    STATIC_ASSERT(SIZE_OF(LineArrayX32Y16Block) <= 1024);
 
     // Points to the current arena.
     uint8 *mCurrent = nullptr;
@@ -96,13 +97,13 @@ FORCE_INLINE LineArrayTiledBlock *LineBlockAllocator::NewTiledBlock(LineArrayTil
 }
 
 
-FORCE_INLINE LineArrayX16Y16::Block *LineBlockAllocator::NewX16Y16Block(LineArrayX16Y16::Block *next) {
-    return NewBlock<LineArrayX16Y16::Block>(next);
+FORCE_INLINE LineArrayX16Y16Block *LineBlockAllocator::NewX16Y16Block(LineArrayX16Y16Block *next) {
+    return NewBlock<LineArrayX16Y16Block>(next);
 }
 
 
-FORCE_INLINE LineArrayX32Y16::Block *LineBlockAllocator::NewX32Y16Block(LineArrayX32Y16::Block *next) {
-    return NewBlock<LineArrayX32Y16::Block>(next);
+FORCE_INLINE LineArrayX32Y16Block *LineBlockAllocator::NewX32Y16Block(LineArrayX32Y16Block *next) {
+    return NewBlock<LineArrayX32Y16Block>(next);
 }
 
 

@@ -56,5 +56,7 @@ void LineBlockAllocator::NewArena()
 
     mCurrent = p->Memory + SIZE_OF(Arena::Links);
     mEnd = p->Memory + Arena::Size -
-        SIZE_OF(LineArrayX32Y16::Block);
+        Max3(SIZE_OF(LineArrayX32Y16Block),
+             SIZE_OF(LineArrayX16Y16Block),
+             SIZE_OF(LineArrayTiledBlock));
 }

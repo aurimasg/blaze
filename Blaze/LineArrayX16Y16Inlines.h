@@ -14,7 +14,7 @@ FORCE_INLINE void LineArrayX16Y16::Construct(LineArrayX16Y16 *placement,
 }
 
 
-FORCE_INLINE LineArrayX16Y16::Block *LineArrayX16Y16::GetFrontBlock() const {
+FORCE_INLINE LineArrayX16Y16Block *LineArrayX16Y16::GetFrontBlock() const {
     return mCurrent;
 }
 
@@ -60,17 +60,17 @@ FORCE_INLINE void LineArrayX16Y16::AppendLineUpRL(ThreadMemory &memory, const F2
 
 
 FORCE_INLINE void LineArrayX16Y16::AppendLine(ThreadMemory &memory, const F8Dot8x2 y0y1, const F8Dot8x2 x0x1) {
-    Block *current = mCurrent;
+    LineArrayX16Y16Block *current = mCurrent;
     const int count = mCount;
 
-    if (count < Block::LinesPerBlock) {
+    if (count < LineArrayX16Y16Block::LinesPerBlock) {
         // Most common.
         current->Y0Y1[count] = y0y1;
         current->X0X1[count] = x0x1;
 
         mCount = count + 1;
     } else {
-        Block *b = memory.FrameNewX16Y16Block(current);
+        LineArrayX16Y16Block *b = memory.FrameNewX16Y16Block(current);
 
         b->Y0Y1[0] = y0y1;
         b->X0X1[0] = x0x1;

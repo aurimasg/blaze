@@ -179,8 +179,7 @@ public:
      *
      * Line blocks are always allocated from frame memory.
      */
-    template <typename T>
-    typename LineArrayTiled<T>::Block *FrameNewTiledBlock(typename LineArrayTiled<T>::Block *next);
+    LineArrayTiledBlock *FrameNewTiledBlock(LineArrayTiledBlock *next);
 
 
     /**
@@ -299,9 +298,8 @@ FORCE_INLINE void *ThreadMemory::FrameMalloc(const int size) {
 }
 
 
-template <typename T>
-FORCE_INLINE typename LineArrayTiled<T>::Block *ThreadMemory::FrameNewTiledBlock(typename LineArrayTiled<T>::Block *next) {
-    return mFrameLineBlockAllocator.NewTiledBlock<T>(next);
+FORCE_INLINE LineArrayTiledBlock *ThreadMemory::FrameNewTiledBlock(LineArrayTiledBlock *next) {
+    return mFrameLineBlockAllocator.NewTiledBlock(next);
 }
 
 

@@ -352,7 +352,7 @@ FORCE_INLINE void Rasterizer<T>::Rasterize(const Geometry *inputGeometries,
     const TileIndex rowCount = CalculateRowCount<T>(imageSize.Height);
 
     RowItemList<RasterizableItem> *rowLists =
-        static_cast<RowItemList<RasterizableItem> *>(threads.MallocMain(SIZE_OF(RowItemList<T>) * rowCount));
+        static_cast<RowItemList<RasterizableItem> *>(threads.MallocMain(SIZE_OF(RowItemList<RasterizableItem>) * rowCount));
 
     const int threadCount = Threads::GetHardwareThreadCount();
 

@@ -3,6 +3,18 @@
 
 
 template <typename T>
+FORCE_INLINE LineArrayTiledBlock *LineArrayTiled<T>::GetFrontBlock() const {
+    return mCurrent;
+}
+
+
+template <typename T>
+FORCE_INLINE int LineArrayTiled<T>::GetFrontBlockLineCount() const {
+    return mCount;
+}
+
+
+template <typename T>
 FORCE_INLINE void LineArrayTiled<T>::AppendVerticalLine(ThreadMemory &memory, const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1) {
     const TileIndex columnIndex = T::F24Dot8ToTileColumnIndex(x - FindTileColumnAdjustment(x));
     const F24Dot8 ex = x - T::TileColumnIndexToF24Dot8(columnIndex);
@@ -414,8 +426,12 @@ FORCE_INLINE void LineArrayTiled<T>::Append(ThreadMemory &memory,
     const F24Dot8 x1, const F24Dot8 y1)
 {
     if (y0 != y1) {
+        const F24Dot8 cx = T::TileColumnIndexToF24Dot8(columnIndex);
+        const F24Dot8 ex0 = x0 - cx;
+        const F24Dot8 ex1 = x1 - cx;
+
         Append(memory, columnIndex, PackF24Dot8ToF8Dot8x2(y0, y1),
-            PackF24Dot8ToF8Dot8x2(x0, x1));
+            PackF24Dot8ToF8Dot8x2(ex0, ex1));
     }
 }
 
@@ -424,10 +440,10 @@ template <typename T>
 FORCE_INLINE void LineArrayTiled<T>::Append(ThreadMemory &memory,
     const TileIndex columnIndex, const F8Dot8x2 y0y1, const F8Dot8x2 x0x1)
 {
-    Block *current = mCurrent;
+    LineArrayTiledBlock *current = mCurrent;
     const int count = mCount;
 
-    if (count < Block::LinesPerBlock) {
+    if (count < LineArrayTiledBlock::LinesPerBlock) {
         // Most common.
         current->Y0Y1[count] = y0y1;
         current->X0X1[count] = x0x1;
@@ -435,7 +451,7 @@ FORCE_INLINE void LineArrayTiled<T>::Append(ThreadMemory &memory,
 
         mCount = count + 1;
     } else {
-        Block *b = memory.FrameNewTiledBlock<T>(current);
+        LineArrayTiledBlock *b = memory.FrameNewTiledBlock(current);
 
         b->Y0Y1[0] = y0y1;
         b->X0X1[0] = x0x1;

@@ -22,8 +22,7 @@ public:
     /**
      * Returns new tiled line array block. Returned memory is not zero-filled.
      */
-    template <typename T>
-    typename LineArrayTiled<T>::Block *NewTiledBlock(typename LineArrayTiled<T>::Block *next);
+    LineArrayTiledBlock *NewTiledBlock(LineArrayTiledBlock *next);
 
 
     /**
@@ -92,9 +91,8 @@ private:
 };
 
 
-template <typename T>
-FORCE_INLINE typename LineArrayTiled<T>::Block *LineBlockAllocator::NewTiledBlock(typename LineArrayTiled<T>::Block *next) {
-    return NewBlock<typename LineArrayTiled<T>::Block>(next);
+FORCE_INLINE LineArrayTiledBlock *LineBlockAllocator::NewTiledBlock(LineArrayTiledBlock *next) {
+    return NewBlock<LineArrayTiledBlock>(next);
 }
 
 

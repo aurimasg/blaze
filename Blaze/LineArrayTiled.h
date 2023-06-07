@@ -9,33 +9,36 @@
 class ThreadMemory;
 
 
+struct LineArrayTiledBlock final {
+    constexpr explicit LineArrayTiledBlock(LineArrayTiledBlock *next)
+    :   Next(next)
+    {
+    }
+
+
+    static constexpr int LinesPerBlock = 32;
+
+
+    // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
+    // integer.
+    F8Dot8x2 Y0Y1[LinesPerBlock];
+    F8Dot8x2 X0X1[LinesPerBlock];
+    TileIndex Indices[LinesPerBlock];
+
+    // Pointer to the next block of lines in the same row.
+    LineArrayTiledBlock *Next = nullptr;
+private:
+    LineArrayTiledBlock() = delete;
+private:
+    DISABLE_COPY_AND_ASSIGN(LineArrayTiledBlock);
+};
+
+
 template <typename T>
 struct LineArrayTiled final {
-    struct Block final {
-        constexpr explicit Block(Block *next)
-        :   Next(next)
-        {
-        }
 
-
-        static constexpr int LinesPerBlock = 32;
-
-
-        // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
-        // integer.
-        F8Dot8x2 Y0Y1[LinesPerBlock];
-        F8Dot8x2 X0X1[LinesPerBlock];
-        TileIndex Indices[LinesPerBlock];
-
-        // Pointer to the next block of lines in the same row.
-        Block *Next = nullptr;
-    private:
-        Block() = delete;
-    private:
-        DISABLE_COPY_AND_ASSIGN(Block);
-    };
-
-public:
+    LineArrayTiledBlock *GetFrontBlock() const;
+    int GetFrontBlockLineCount() const;
 
     void AppendVerticalLine(ThreadMemory &memory, const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1);
     void AppendLineDownR_V(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
@@ -74,6 +77,6 @@ private:
     }
 
 private:
-    Block *mCurrent = nullptr;
-    int mCount = Block::LinesPerBlock;
+    LineArrayTiledBlock *mCurrent = nullptr;
+    int mCount = LineArrayTiledBlock::LinesPerBlock;
 };

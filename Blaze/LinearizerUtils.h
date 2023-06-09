@@ -2,6 +2,86 @@
 #pragma once
 
 
+#include "CurveUtils.h"
+#include "F24Dot8.h"
+#include "F24Dot8Point.h"
+
+
+static FORCE_INLINE void UpdateCoverTable_Down(int32 *covers,
+    const F24Dot8 y0, const F24Dot8 y1)
+{
+    ASSERT(covers != nullptr);
+    ASSERT(y0 < y1);
+
+    // Integer parts for top and bottom.
+    const int rowIndex0 = y0 >> 8;
+    const int rowIndex1 = (y1 - 1) >> 8;
+
+    ASSERT(rowIndex0 >= 0);
+    //ASSERT(rowIndex0 < T::TileH);
+    ASSERT(rowIndex1 >= 0);
+    //ASSERT(rowIndex1 < T::TileH);
+
+    const int fy0 = y0 - (rowIndex0 << 8);
+    const int fy1 = y1 - (rowIndex1 << 8);
+
+    if (rowIndex0 == rowIndex1) {
+        covers[rowIndex0] -= fy1 - fy0;
+    } else {
+        covers[rowIndex0] -= 256 - fy0;
+
+        for (int i = rowIndex0 + 1; i < rowIndex1; i++) {
+            covers[i] -= 256;
+        }
+
+        covers[rowIndex1] -= fy1;
+    }
+}
+
+
+static FORCE_INLINE void UpdateCoverTable_Up(int32 *covers, const F24Dot8 y0,
+    const F24Dot8 y1)
+{
+    ASSERT(covers != nullptr);
+    ASSERT(y0 > y1);
+
+    // Integer parts for top and bottom.
+    const int rowIndex0 = (y0 - 1) >> 8;
+    const int rowIndex1 = y1 >> 8;
+
+    ASSERT(rowIndex0 >= 0);
+    //ASSERT(rowIndex0 < T::TileH);
+    ASSERT(rowIndex1 >= 0);
+    //ASSERT(rowIndex1 < T::TileH);
+
+    const int fy0 = y0 - (rowIndex0 << 8);
+    const int fy1 = y1 - (rowIndex1 << 8);
+
+    if (rowIndex0 == rowIndex1) {
+        covers[rowIndex0] += fy0 - fy1;
+    } else {
+        covers[rowIndex0] += fy0;
+
+        for (int i = rowIndex0 - 1; i > rowIndex1; i--) {
+            covers[i] += 256;
+        }
+
+        covers[rowIndex1] += 256 - fy1;
+    }
+}
+
+
+static FORCE_INLINE void UpdateCoverTable(int32 *covers, const F24Dot8 y0,
+    const F24Dot8 y1)
+{
+    if (y0 < y1) {
+        UpdateCoverTable_Down(covers, y0, y1);
+    } else {
+        UpdateCoverTable_Up(covers, y0, y1);
+    }
+}
+
+
 /**
  * Split quadratic curve in half.
  *

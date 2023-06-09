@@ -11,23 +11,53 @@ FORCE_INLINE void LineArrayTiled<T>::Construct(LineArrayTiled<T> *placement,
     ASSERT(rowCount > 0);
     ASSERT(columnCount > 0);
 
-    LineArrayTiled<T> *p = static_cast<LineArrayTiled<T> *>(placement);
+    const int bitVectorsPerRow = BitVectorsForMaxBitCount(columnCount);
+    const int bitVectorCount = bitVectorsPerRow * rowCount;
+
+    BitVector *bitVectors = memory.FrameMallocArrayZeroFill<BitVector>(bitVectorCount);
+
+    LineArrayTiledBlock **blocks = static_cast<LineArrayTiledBlock **>(
+        memory.TaskMalloc(SIZE_OF(LineArrayTiledBlock *) * columnCount * rowCount));
+
+    int32 **covers = static_cast<int32 **>(
+        memory.TaskMalloc(SIZE_OF(int32 *) * columnCount * rowCount));
+
+    int *counts = static_cast<int *>(
+        memory.TaskMalloc(SIZE_OF(int) * columnCount * rowCount));
 
     for (TileIndex i = 0; i < rowCount; i++) {
-        new (p + i) LineArrayTiled<T>();
+        new (placement + i) LineArrayTiled<T>(bitVectors, blocks,
+            covers, counts);
+
+        bitVectors += bitVectorsPerRow;
+        blocks += columnCount;
+        covers += columnCount;
+        counts += columnCount;
     }
 }
 
 
 template <typename T>
-FORCE_INLINE LineArrayTiledBlock *LineArrayTiled<T>::GetFrontBlock() const {
-    return mCurrent;
+FORCE_INLINE const BitVector *LineArrayTiled<T>::GetTileAllocationBitVectors() const {
+    return mBitVectors;
 }
 
 
 template <typename T>
-FORCE_INLINE int LineArrayTiled<T>::GetFrontBlockLineCount() const {
-    return mCount;
+FORCE_INLINE const LineArrayTiledBlock *LineArrayTiled<T>::GetFrontBlockForColumn(const TileIndex columnIndex) const {
+    return mBlocks[columnIndex];
+}
+
+
+template <typename T>
+FORCE_INLINE const int32 *LineArrayTiled<T>::GetCoversForColumn(const TileIndex columnIndex) const {
+    return mCovers[columnIndex];
+}
+
+
+template <typename T>
+FORCE_INLINE int LineArrayTiled<T>::GetTotalLineCountForColumn(const TileIndex columnIndex) const {
+    return mCounts[columnIndex];
 }
 
 
@@ -36,8 +66,7 @@ FORCE_INLINE void LineArrayTiled<T>::AppendVerticalLine(ThreadMemory &memory, co
     const TileIndex columnIndex = T::F24Dot8ToTileColumnIndex(x - FindTileColumnAdjustment(x));
     const F24Dot8 ex = x - T::TileColumnIndexToF24Dot8(columnIndex);
 
-    Append(memory, columnIndex, PackF24Dot8ToF8Dot8x2(y0, y1),
-        PackF24Dot8ToF8Dot8x2(ex, ex));
+    Push(memory, columnIndex, ex, y0, ex, y1);
 }
 
 
@@ -447,36 +476,60 @@ FORCE_INLINE void LineArrayTiled<T>::Append(ThreadMemory &memory,
         const F24Dot8 ex0 = x0 - cx;
         const F24Dot8 ex1 = x1 - cx;
 
-        Append(memory, columnIndex, PackF24Dot8ToF8Dot8x2(y0, y1),
-            PackF24Dot8ToF8Dot8x2(ex0, ex1));
+        Push(memory, columnIndex, ex0, y0, ex1, y1);
     }
 }
 
 
 template <typename T>
-FORCE_INLINE void LineArrayTiled<T>::Append(ThreadMemory &memory,
-    const TileIndex columnIndex, const F8Dot8x2 y0y1, const F8Dot8x2 x0x1)
+FORCE_INLINE void LineArrayTiled<T>::Push(ThreadMemory &memory,
+    const TileIndex columnIndex, const F24Dot8 x0, const F24Dot8 y0,
+    const F24Dot8 x1, const F24Dot8 y1)
 {
-    LineArrayTiledBlock *current = mCurrent;
-    const int count = mCount;
+    if (ConditionalSetBit(mBitVectors, columnIndex)) {
+        // First time line is inserted into this column.
+        LineArrayTiledBlock *b = memory.FrameNewTiledBlock(nullptr);
+        int32 *covers = memory.FrameMallocArrayZeroFill<int32>(T::TileH);
 
-    if (count < LineArrayTiledBlock::LinesPerBlock) {
-        // Most common.
-        current->Y0Y1[count] = y0y1;
-        current->X0X1[count] = x0x1;
-        current->Indices[count] = columnIndex;
+        UpdateCoverTable(covers, y0, y1);
 
-        mCount = count + 1;
+        b->P0P1[0] = PackF24Dot8ToF8Dot8x4(x0, y0, x1, y1);
+
+        // First line sets count to 1 for line being inserted right now.
+        mBlocks[columnIndex] = b;
+        mCovers[columnIndex] = covers;
+        mCounts[columnIndex] = 1;
     } else {
-        LineArrayTiledBlock *b = memory.FrameNewTiledBlock(current);
+        LineArrayTiledBlock *current = mBlocks[columnIndex];
 
-        b->Y0Y1[0] = y0y1;
-        b->X0X1[0] = x0x1;
-        b->Indices[0] = columnIndex;
+        // Count is total number of lines in all blocks. This makes things
+        // easier later, at GPU data preparation stage.
+        const int count = mCounts[columnIndex];
 
-        // Set count to 1 for segment being added.
-        mCount = 1;
+        ASSERT(count > 0);
 
-        mCurrent = b;
+        static constexpr int Mask = LineArrayTiledBlock::LinesPerBlock - 1;
+
+        // Find out line count in current block. Assuming count will always be
+        // at least 1 (first block allocation is handled as a special case and
+        // sets count to 1). This value will be from 1 to maximum line count
+        // for block.
+        const int countInCurrentBlock = ((count - 1) & Mask) + 1;
+
+        if (LIKELY(countInCurrentBlock < LineArrayTiledBlock::LinesPerBlock)) {
+            current->P0P1[countInCurrentBlock] = PackF24Dot8ToF8Dot8x4(x0, y0, x1, y1);
+
+            UpdateCoverTable(mCovers[columnIndex], y0, y1);
+        } else {
+            LineArrayTiledBlock *b = memory.FrameNewTiledBlock(current);
+
+            b->P0P1[0] = PackF24Dot8ToF8Dot8x4(x0, y0, x1, y1);
+
+            UpdateCoverTable(mCovers[columnIndex], y0, y1);
+
+            mBlocks[columnIndex] = b;
+        }
+
+        mCounts[columnIndex] = count + 1;
     }
 }

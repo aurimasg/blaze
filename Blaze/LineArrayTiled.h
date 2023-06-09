@@ -2,7 +2,9 @@
 #pragma once
 
 
+#include "BitOps.h"
 #include "F8Dot8.h"
+#include "LinearizerUtils.h"
 #include "TileBounds.h"
 
 
@@ -16,16 +18,11 @@ struct LineArrayTiledBlock final {
     }
 
 
-    static constexpr int LinesPerBlock = 32;
+    static constexpr int LinesPerBlock = 8;
 
 
-    // Y0 and Y1 encoded as two 8.8 fixed point numbers packed into one 32 bit
-    // integer.
-    F8Dot8x2 Y0Y1[LinesPerBlock];
-    F8Dot8x2 X0X1[LinesPerBlock];
-    TileIndex Indices[LinesPerBlock];
+    F8Dot8x4 P0P1[LinesPerBlock];
 
-    // Pointer to the next block of lines in the same row.
     LineArrayTiledBlock *Next = nullptr;
 private:
     LineArrayTiledBlock() = delete;
@@ -41,8 +38,10 @@ struct LineArrayTiled final {
         const TileIndex rowCount, const TileIndex columnCount,
         ThreadMemory &memory);
 
-    LineArrayTiledBlock *GetFrontBlock() const;
-    int GetFrontBlockLineCount() const;
+    const BitVector *GetTileAllocationBitVectors() const;
+    const LineArrayTiledBlock *GetFrontBlockForColumn(const TileIndex columnIndex) const;
+    const int32 *GetCoversForColumn(const TileIndex columnIndex) const;
+    int GetTotalLineCountForColumn(const TileIndex columnIndex) const;
 
     void AppendVerticalLine(ThreadMemory &memory, const F24Dot8 x, const F24Dot8 y0, const F24Dot8 y1);
     void AppendLineDownR_V(ThreadMemory &memory, const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
@@ -60,8 +59,8 @@ private:
 private:
     void Append(ThreadMemory &memory, const TileIndex columnIndex,
         const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
-    void Append(ThreadMemory &memory, const TileIndex columnIndex,
-        const F8Dot8x2 y0y1, const F8Dot8x2 x0x1);
+    void Push(ThreadMemory &memory, const TileIndex columnIndex,
+        const F24Dot8 x0, const F24Dot8 y0, const F24Dot8 x1, const F24Dot8 y1);
 private:
 
     static constexpr int AdjustmentMask = (F24Dot8_1 * T::TileW) - 1;
@@ -81,6 +80,33 @@ private:
     }
 
 private:
-    LineArrayTiledBlock *mCurrent = nullptr;
-    int mCount = LineArrayTiledBlock::LinesPerBlock;
+
+    constexpr LineArrayTiled(BitVector *bitVectors,
+        LineArrayTiledBlock **blocks, int32 **covers, int *counts)
+    :   mBitVectors(bitVectors),
+        mBlocks(blocks),
+        mCovers(covers),
+        mCounts(counts)
+    {
+    }
+
+private:
+
+    // One bit for each tile column.
+    BitVector *mBitVectors = nullptr;
+
+    // One block pointer for each tile column. Not zero-filled at the
+    // beginning, individual pointers initialized to newly allocated blocks
+    // once the first line is inserted into particular column.
+    LineArrayTiledBlock **mBlocks = nullptr;
+
+    // One cover array for each tile column. Not zero-filled at the beginning,
+    // individual cover arrays allocated and zero-filled once the first line
+    // is inserted into particular column.
+    int32 **mCovers = nullptr;
+
+    // One count for each tile column. Not zero-filled at the beginning,
+    // individual counts initialized to one once the first line is inserted
+    // into particular column.
+    int *mCounts = nullptr;
 };

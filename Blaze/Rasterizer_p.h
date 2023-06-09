@@ -654,7 +654,7 @@ Rasterizer<T>::Linearize(void *placement, const Geometry *geometry, const TileBo
     int32 *firstLineBlockCounts = memory.FrameMallocArray<int32>(
         bounds.RowCount);
 
-    for (int i = 0; i < bounds.RowCount; i++) {
+    for (TileIndex i = 0; i < bounds.RowCount; i++) {
         const L *la = linearizer->GetLineArrayAtIndex(i);
 
         ASSERT(la != nullptr);

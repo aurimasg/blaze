@@ -301,11 +301,6 @@ private:
     static constexpr int32 FullPixelCoverNegative = -256;
 
 
-    static void UpdateStartCovers_Down(int32 *covers, const F24Dot8 y0,
-        const F24Dot8 y1);
-    static void UpdateStartCovers_Up(int32 *covers, const F24Dot8 y0,
-        const F24Dot8 y1);
-
     L *LA(const int verticalIndex);
 
 private:
@@ -2227,9 +2222,9 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
         int32 *cmFirst = GetStartCoversForRowAtIndex(memory, rowIndex0);
 
         if (rowIndex0 == rowIndex1) {
-            UpdateStartCovers_Down(cmFirst, fy0, fy1);
+            UpdateCoverTable_Down(cmFirst, fy0, fy1);
         } else {
-            UpdateStartCovers_Down(cmFirst, fy0, T::TileHF24Dot8);
+            UpdateCoverTable_Down(cmFirst, fy0, T::TileHF24Dot8);
 
             for (TileIndex i = rowIndex0 + 1; i < rowIndex1; i++) {
                 UpdateStartCoversFull_Down(memory, i);
@@ -2237,7 +2232,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
 
             int32 *cmLast = GetStartCoversForRowAtIndex(memory, rowIndex1);
 
-            UpdateStartCovers_Down(cmLast, 0, fy1);
+            UpdateCoverTable_Down(cmLast, 0, fy1);
         }
     } else {
         // Line is going up.
@@ -2249,9 +2244,9 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
         int32 *cmFirst = GetStartCoversForRowAtIndex(memory, rowIndex0);
 
         if (rowIndex0 == rowIndex1) {
-            UpdateStartCovers_Up(cmFirst, fy0, fy1);
+            UpdateCoverTable_Up(cmFirst, fy0, fy1);
         } else {
-            UpdateStartCovers_Up(cmFirst, fy0, 0);
+            UpdateCoverTable_Up(cmFirst, fy0, 0);
 
             for (TileIndex i = rowIndex0 - 1; i > rowIndex1; i--) {
                 UpdateStartCoversFull_Up(memory, i);
@@ -2259,7 +2254,7 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers(ThreadMemory &memory,
 
             int32 *cmLast = GetStartCoversForRowAtIndex(memory, rowIndex1);
 
-            UpdateStartCovers_Up(cmLast, T::TileHF24Dot8, fy1);
+            UpdateCoverTable_Up(cmLast, T::TileHF24Dot8, fy1);
         }
     }
 }
@@ -2309,72 +2304,6 @@ FORCE_INLINE void Linearizer<T, L>::UpdateStartCoversFull_Up(ThreadMemory &memor
         T::FillStartCovers(p, FullPixelCoverPositive);
 
         mStartCoverTable[index] = p;
-    }
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Down(int32 *covers, const F24Dot8 y0,
-    const F24Dot8 y1)
-{
-    ASSERT(covers != nullptr);
-    ASSERT(y0 < y1);
-
-    // Integer parts for top and bottom.
-    const int rowIndex0 = y0 >> 8;
-    const int rowIndex1 = (y1 - 1) >> 8;
-
-    ASSERT(rowIndex0 >= 0);
-    ASSERT(rowIndex0 < T::TileH);
-    ASSERT(rowIndex1 >= 0);
-    ASSERT(rowIndex1 < T::TileH);
-
-    const int fy0 = y0 - (rowIndex0 << 8);
-    const int fy1 = y1 - (rowIndex1 << 8);
-
-    if (rowIndex0 == rowIndex1) {
-        covers[rowIndex0] -= fy1 - fy0;
-    } else {
-        covers[rowIndex0] -= 256 - fy0;
-
-        for (int i = rowIndex0 + 1; i < rowIndex1; i++) {
-            covers[i] -= 256;
-        }
-
-        covers[rowIndex1] -= fy1;
-    }
-}
-
-
-template <typename T, typename L>
-FORCE_INLINE void Linearizer<T, L>::UpdateStartCovers_Up(int32 *covers, const F24Dot8 y0,
-    const F24Dot8 y1)
-{
-    ASSERT(covers != nullptr);
-    ASSERT(y0 > y1);
-
-    // Integer parts for top and bottom.
-    const int rowIndex0 = (y0 - 1) >> 8;
-    const int rowIndex1 = y1 >> 8;
-
-    ASSERT(rowIndex0 >= 0);
-    ASSERT(rowIndex0 < T::TileH);
-    ASSERT(rowIndex1 >= 0);
-    ASSERT(rowIndex1 < T::TileH);
-
-    const int fy0 = y0 - (rowIndex0 << 8);
-    const int fy1 = y1 - (rowIndex1 << 8);
-
-    if (rowIndex0 == rowIndex1) {
-        covers[rowIndex0] += fy0 - fy1;
-    } else {
-        covers[rowIndex0] += fy0;
-
-        for (int i = rowIndex0 - 1; i > rowIndex1; i--) {
-            covers[i] += 256;
-        }
-
-        covers[rowIndex1] += 256 - fy1;
     }
 }
 

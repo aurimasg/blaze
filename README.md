@@ -1,6 +1,6 @@
 # Blaze
 
-## Multi-threaded, CPU-based vector graphics rasterizer.
+Multi-threaded, CPU-based vector graphics rasterizer.
 
 ## Intro.
 There is an article about this rasterizer at https://gasiulis.name/parallel-rasterization-on-cpu/.

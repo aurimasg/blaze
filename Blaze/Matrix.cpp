@@ -248,13 +248,15 @@ void Matrix::PostMultiply(const Matrix &matrix)
     const double m01 = m[0][1];
     const double m10 = m[1][0];
     const double m11 = m[1][1];
+    const double m20 = m[2][0];
+    const double m21 = m[2][1];
 
     m[0][0] = matrix.m[0][0] * m00 + matrix.m[0][1] * m10;
     m[0][1] = matrix.m[0][0] * m01 + matrix.m[0][1] * m11;
     m[1][0] = matrix.m[1][0] * m00 + matrix.m[1][1] * m10;
     m[1][1] = matrix.m[1][0] * m01 + matrix.m[1][1] * m11;
-    m[2][0] = matrix.m[2][0] * m00 + matrix.m[2][1] * m10 + m[2][0];
-    m[2][1] = matrix.m[2][0] * m01 + matrix.m[2][1] * m11 + m[2][1];
+    m[2][0] = matrix.m[2][0] * m00 + matrix.m[2][1] * m10 + m20;
+    m[2][1] = matrix.m[2][0] * m01 + matrix.m[2][1] * m11 + m21;
 }
 
 
@@ -264,13 +266,15 @@ void Matrix::PreMultiply(const Matrix &matrix)
     const double m01 = m[0][1];
     const double m10 = m[1][0];
     const double m11 = m[1][1];
+    const double m20 = m[2][0];
+    const double m21 = m[2][1];
 
     m[0][0] = m00 * matrix.m[0][0] + m01 * matrix.m[1][0];
     m[0][1] = m00 * matrix.m[0][1] + m01 * matrix.m[1][1];
     m[1][0] = m10 * matrix.m[0][0] + m11 * matrix.m[1][0];
     m[1][1] = m10 * matrix.m[0][1] + m11 * matrix.m[1][1];
-    m[2][0] = m[2][0] * matrix.m[0][0] + m[2][1] * matrix.m[1][0] + matrix.m[2][0];
-    m[2][1] = m[2][0] * matrix.m[0][1] + m[2][1] * matrix.m[1][1] + matrix.m[2][1];
+    m[2][0] = m20 * matrix.m[0][0] + m21 * matrix.m[1][0] + matrix.m[2][0];
+    m[2][1] = m20 * matrix.m[0][1] + m21 * matrix.m[1][1] + matrix.m[2][1];
 }
 
 

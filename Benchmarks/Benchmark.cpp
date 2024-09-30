@@ -248,7 +248,7 @@ void RudimentaryPNGWriter::Save(const uint8 *bytes, const int width,
 
     ASSERT(mFile == -1);
 
-    mFile = open(path, O_WRONLY | O_CREAT);
+    mFile = open(path, O_WRONLY | O_CREAT, 0666);
 
     WriteRaw("\211PNG\r\n\032\n", 8);
 
@@ -383,7 +383,7 @@ double Benchmark::Run(const VectorImage &vg, const double scale, const char *op)
     const int v = maxy - miny;
 
     Matrix matrix = Matrix::CreateScale(scale);
-    matrix.PostTranslate(-minx, -miny);
+    matrix.PreTranslate(-minx, -miny);
 
     const int a = h * 4;
     const int bytesPerRow = (a + 127) & ~127;
